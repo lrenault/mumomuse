@@ -8,30 +8,33 @@ Created on Thu Dec  5 22:44:40 2019
 #%% imports
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torchaudio
-import torch.optim as optim
-from torchvision import datasets, transforms
 import matplotlib.pyplot as plt
 
-
+sampling_rate = 22050
 filename = "db/test.wav"
-waveform, sr_hz = torchaudio.load(filename)
 
-# convert to mono
-#if waveform.size()[0] > 1:
-#    waveform = waveform[0,:]
+# load audio
+waveform, origin_sr = torchaudio.load(filename)
+# convert to mono and 22.05kHz sampling rate
+waveform = torchaudio.transforms.Resample(origin_sr,
+                                          sampling_rate)(waveform[0,:].view(1,-1)) 
 
 plt.plot(waveform.t().numpy())
 plt.show()
 
-specgram = torchaudio.transforms.MelSpectrogram(sample_rate=sr_hz,
+specgram = torchaudio.transforms.MelSpectrogram(sample_rate=sampling_rate,
+                                                n_fft=len(waveform.t().numpy()),
+                                                win_length=2048,
                                                 f_min=30.0,
-                                                f_max=6000.0)(waveform)
+                                                f_max=6000.0,
+                                                n_mels=92)(waveform)
+#%%
+data_m = specgram[:,:,:42]
 print("Shape of spectrogram: {}".format(specgram.size()))
 
 plt.figure(figsize=(30,10))
-plt.imshow(specgram.log2()[0,:,:].detach().numpy())
+plt.imshow(data_m.log2()[0,:,:].detach().numpy(), origin='lower')
 
 #%% network definitions
 class audio_autoencoder(nn.Module):
@@ -117,7 +120,7 @@ for epoch in range(num_epochs):
         TO BE ADAPTED
         '''
         # ===== forward  =====
-        output = model(specgram)
+        output = model(data_m)
         loss   = criterion(output, specgram)
         
         # ===== backward =====
