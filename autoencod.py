@@ -88,13 +88,45 @@ class audio_autoencoder(nn.Module):
                 
                 nn.ELU(inplace=True),
                 nn.ConvTranspose2d(24, 24, kernel_size=3, stride=1, padding=1),
-                nn.ConvTranspose2d(24, 92*42, kernel_size=3, stride=1, padding=3)
+                nn.ConvTranspose2d(24, 92*42, kernel_size=3, stride=1, padding=1)
                 )
         
     def forward(self, x):
         x = self.encoder(x)
         x = self.decoder(x)
         return x
+
+#%% Optimization definition
+num_epochs = 20
+batch_size = 100
+learning_rate = 1e-3
+    
     
 model = audio_autoencoder()
 print(model)
+
+criterion = nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters(),
+                             lr=learning_rate,
+                             weight_decay=1e-5)
+
+#%% Optimization run
+for epoch in range(num_epochs):
+    for data in range(1): # TO BE ADAPTED WHEN MORE THAN 1 AUDIO FILE
+        '''
+        TO BE ADAPTED
+        '''
+        # ===== forward  =====
+        output = model(specgram)
+        loss   = criterion(output, specgram)
+        
+        # ===== backward =====
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+    # ===== log =====
+    print('epoch [{}/{}], loss:{:.4f}'
+          .format(epoch+1,num_epochs, loss.data[0]))
+
+#torch.save(model.state_dict(), './audio_encoder.pth')
