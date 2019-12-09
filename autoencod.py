@@ -9,21 +9,51 @@ Created on Thu Dec  5 22:44:40 2019
 import torch
 import torch.nn as nn
 import torchaudio
+import torchaudio.transforms
+from torchvision import transforms
 import matplotlib.pyplot as plt
 
-sampling_rate = 22050
-filename = "db/test.wav"
+target_sr = 22050
+filename = 'db/test.wav'
+
+preproc = transforms.Compose([
+        lambda x: torchaudio.transforms.Resample(44100, target_sr)(x),
+        lambda x: torchaudio.transforms.MelSpectrogram(sample_rate=target_sr,
+                                                       n_fft=len(x.t().numpy()),
+                                                       win_length=2048,
+                                                       f_min=30.0,
+                                                       f_max=6000.0,
+                                                       n_mels=92)(x),
+        #transforms.ToTensor(),
+        transforms.Normalize([0], [1]),
+        ])
+
+yesno_data = torchaudio.datasets.YESNO("db/",
+                                       transform=preproc,
+                                       download=True)
+data_loader = torch.utils.data.DataLoader(yesno_data, batch_size=1)
+#%%
+i=0
+for truc, label in data_loader:
+    #plt.imshow(truc[0][0][0,:,:].detach().numpy())
+    #plt.show()
+    print(truc)
+    i+=1
+    if i > 5:
+        break
+
+#%%
 
 # load audio
 waveform, origin_sr = torchaudio.load(filename)
-# convert to mono and 22.05kHz sampling rate
+# take only first channel and 22.05kHz sampling rate
 waveform = torchaudio.transforms.Resample(origin_sr,
-                                          sampling_rate)(waveform[0,:].view(1,-1)) 
+                                          target_sr)(waveform[0,:].view(1,-1)) 
 
 plt.plot(waveform.t().numpy())
 plt.show()
 
-specgram = torchaudio.transforms.MelSpectrogram(sample_rate=sampling_rate,
+specgram = torchaudio.transforms.MelSpectrogram(sample_rate=target_sr,
                                                 n_fft=len(waveform.t().numpy()),
                                                 win_length=2048,
                                                 f_min=30.0,
@@ -33,42 +63,43 @@ specgram = torchaudio.transforms.MelSpectrogram(sample_rate=sampling_rate,
 data_m = specgram[:,:,:42]
 print("Shape of spectrogram: {}".format(specgram.size()))
 
-plt.figure(figsize=(30,10))
+plt.figure(figsize=(15,5))
 plt.imshow(data_m.log2()[0,:,:].detach().numpy(), origin='lower')
 
 #%% network definitions
 class audio_autoencoder(nn.Module):
     def __init__(self):
+        
         super(audio_autoencoder, self).__init__()
         
         self.encoder = nn.Sequential(
-                nn.Conv2d(92*42, 24, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(1, 24, kernel_size=3, stride=1, padding=1),
                 nn.Conv2d(24, 24, kernel_size=3, stride=1, padding=1),
-                nn.BatchNorm2d(100),
+                nn.BatchNorm2d(24),
                 nn.ELU(inplace=True),
                 nn.MaxPool2d(2),
                 
                 nn.Conv2d(24, 48, kernel_size=3, stride=1, padding=1),
-                nn.Conv2d(24, 48, kernel_size=3, stride=1, padding=1),
-                nn.BatchNorm2d(100),
+                nn.Conv2d(48, 48, kernel_size=3, stride=1, padding=1),
+                nn.BatchNorm2d(48),
                 nn.ELU(inplace=True),
                 nn.MaxPool2d(2),
                 
                 nn.Conv2d(48, 96, kernel_size=3, stride=1, padding=1),
                 nn.Conv2d(96, 96, kernel_size=3, stride=1, padding=1),
-                nn.BatchNorm2d(100),
+                nn.BatchNorm2d(96),
                 nn.ELU(inplace=True),
                 nn.MaxPool2d(2),
                 
                 nn.Conv2d(96, 96, kernel_size=3, stride=1, padding=1),
                 nn.Conv2d(96, 96, kernel_size=3, stride=1, padding=1),
-                nn.BatchNorm2d(100),
+                nn.BatchNorm2d(96),
                 nn.ELU(inplace=True),
                 nn.MaxPool2d(2),
                 
                 nn.Conv2d(96, 32, kernel_size=1, stride=1, padding=0),
-                nn.BatchNorm2d(100),
-                nn.Linear(32, 32),
+                nn.BatchNorm2d(32),
+                nn.Linear(1, 160),
                 
                 nn.AvgPool2d(kernel_size=1)
                 )
@@ -91,7 +122,7 @@ class audio_autoencoder(nn.Module):
                 
                 nn.ELU(inplace=True),
                 nn.ConvTranspose2d(24, 24, kernel_size=3, stride=1, padding=1),
-                nn.ConvTranspose2d(24, 92*42, kernel_size=3, stride=1, padding=1)
+                nn.ConvTranspose2d(24, 1, kernel_size=3, stride=1, padding=1)
                 )
         
     def forward(self, x):
@@ -115,13 +146,11 @@ optimizer = torch.optim.Adam(model.parameters(),
 
 #%% Optimization run
 for epoch in range(num_epochs):
-    for data in range(1): # TO BE ADAPTED WHEN MORE THAN 1 AUDIO FILE
-        '''
-        TO BE ADAPTED
-        '''
+    for data, label in data_loader:
+        spec = data
         # ===== forward  =====
-        output = model(data_m)
-        loss   = criterion(output, specgram)
+        output = model(spec)
+        loss   = criterion(output, spec)
         
         # ===== backward =====
         optimizer.zero_grad()
