@@ -25,6 +25,8 @@ preproc = transforms.Compose([
                                                        f_max=6000.0,
                                                        n_mels=92)(x),
         #transforms.ToTensor(),
+        # crop the end
+        lambda x: x[:,:,:26],
         transforms.Normalize([0], [1]),
         ])
 
@@ -35,9 +37,14 @@ data_loader = torch.utils.data.DataLoader(yesno_data, batch_size=1)
 #%%
 i=0
 for truc, label in data_loader:
-    print(truc)
+    print(truc.size())
     i+=1
     if i > 5:
+        print(truc.size())
+        test = nn.MaxPool2d(2)(truc)
+        print(test.size())
+        test2= nn.ConvTranspose2d(1, 1, kernel_size=3, stride=2, padding=1, output_padding=1)(test)
+        print(test2.size())
         break
 
 #%%
@@ -97,29 +104,29 @@ class audio_autoencoder(nn.Module):
                 
                 nn.Conv2d(96, 32, kernel_size=1, stride=1, padding=0),
                 nn.BatchNorm2d(32),
-                nn.Linear(1, 32),
+                #nn.Linear(1, 32),
                 
-                nn.AvgPool2d(kernel_size=1)
+                #nn.AvgPool2d(kernel_size=1)
                 )
         
         self.decoder = nn.Sequential(
-                nn.Linear(32, 1),
+                #nn.Linear(32, 1),
                 nn.ConvTranspose2d(32, 96, kernel_size=1, stride=1, padding=0),
                 
                 nn.ELU(inplace=True),
-                nn.ConvTranspose2d(96, 96, kernel_size=3, stride=2, padding=1),
+                nn.ConvTranspose2d(96, 96, kernel_size=3, stride=2, padding=0),
                 nn.ConvTranspose2d(96, 96, kernel_size=3, stride=1, padding=1),
                 
                 nn.ELU(inplace=True),
-                nn.ConvTranspose2d(96, 96, kernel_size=3, stride=2, padding=1),
+                nn.ConvTranspose2d(96, 96, kernel_size=3, stride=2, padding=0),
                 nn.ConvTranspose2d(96, 48, kernel_size=3, stride=1, padding=1),
                 
                 nn.ELU(inplace=True),
-                nn.ConvTranspose2d(48, 48, kernel_size=3, stride=2, padding=1),
+                nn.ConvTranspose2d(48, 48, kernel_size=3, stride=2, padding=0),
                 nn.ConvTranspose2d(48, 24, kernel_size=3, stride=1, padding=1),
                 
                 nn.ELU(inplace=True),
-                nn.ConvTranspose2d(24, 24, kernel_size=3, stride=2, padding=1),
+                nn.ConvTranspose2d(24, 24, kernel_size=3, stride=2, padding=0),
                 nn.ConvTranspose2d(24, 1,  kernel_size=3, stride=1, padding=1),
                 
                 nn.ELU(inplace=True)
@@ -127,25 +134,27 @@ class audio_autoencoder(nn.Module):
         
     def forward(self, x):
         x = self.encoder(x)
-        
-        #I, J = x.size()[2], x.size()[3]
-        #x = x.view(-1, 32 * I *J)
-        #x = nn.Linear(32 * I * J, 32)(x) # Fully Connected
-        #print(x)
-        L = nn.AvgPool2d(kernel_size=1)(x)
-        
+        print(x.size())
+        L = x
+        '''
+        I, J = x.size()[2], x.size()[3]
+        x = x.view(-1, 32 * I *J)
+        x = nn.Linear(32 * I * J, 32)(x) # Fully Connected
+        print(x.size())
+        L = nn.AvgPool1d(kernel_size=1)(x)
+        '''
         print("Latent dimension =", L.size())
         x = self.decoder(L)
         return x
 
-#%% Optimization definition
+# Optimization definition
 num_epochs = 20
 batch_size = 100
 learning_rate = 2e-3
     
     
 model = audio_autoencoder()
-print(model)
+#print(model)
 
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(),
