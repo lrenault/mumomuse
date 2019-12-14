@@ -11,6 +11,7 @@ import torch.nn as nn
 import torchaudio
 import torchaudio.transforms
 from torchvision import transforms
+from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 
 target_sr = 22050
@@ -118,7 +119,8 @@ class audio_autoencoder(nn.Module):
                 nn.ConvTranspose2d(96, 48, kernel_size=3, stride=1, padding=1),
                 # (1, 48, 23, 11)
                 nn.ELU(inplace=True),
-                nn.ConvTranspose2d(48, 48, kernel_size=3, stride=2, padding=1, output_padding=1),
+                nn.ConvTranspose2d(48, 48, kernel_size=3, stride=2, padding=1,
+                                                          output_padding=1),
                 nn.ConvTranspose2d(48, 24, kernel_size=3, stride=1, padding=1),
                 
                 nn.ELU(inplace=True),
@@ -171,6 +173,8 @@ optimizer = torch.optim.Adam(model.parameters(),
                              weight_decay=1e-5)
 
 #%% Optimization run
+writer = SummaryWriter()
+
 for epoch in range(num_epochs):
     for data, label in data_loader:
         spec = data
@@ -188,6 +192,13 @@ for epoch in range(num_epochs):
     print('epoch [{}/{}], loss:{:.4f}'.format(epoch+1,
                                               num_epochs,
                                               loss.data.item()))
+    img = output.squeeze(1)
+    writer.add_image('epoch'+str(epoch), img)
     
+    plt.figure(figsize=(10,5))
+    plt.imshow(output[0,0,:,:].detach().numpy(), origin='lower')
+    plt.show()
 
-#torch.save(model.state_dict(), './audio_encoder.pth')
+writer.close()    
+#%%
+torch.save(model.state_dict(), './models/audio_AE.pth')
