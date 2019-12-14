@@ -114,3 +114,4 @@ Thumbs.db
 
 # User-specific configurations
 /db/*
+/runs/*
