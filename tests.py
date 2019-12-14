@@ -14,13 +14,13 @@ from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 
+import loader
+
 target_sr = 22050
 filename = 'db/test.wav'
 
-yesno_data = torchaudio.datasets.YESNO("db/",
-                                       transform=preproc,
-                                       download=True)
-data_loader = torch.utils.data.DataLoader(yesno_data, batch_size=1)
+audio_loader = loader.AudioLoader()
+data_loader  = audio_loader.getYESNOLoader()
 
 
 #%%

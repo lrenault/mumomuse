@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 
 import loader
 
-yesno_data = loader.getYESNOdata()
-data_loader = torch.utils.data.DataLoader(yesno_data, batch_size=1)
+audio_loader = loader.AudioLoader()
+data_loader = audio_loader.getYESNOLoader()
 
 #%% network definitions
 class audio_autoencoder(nn.Module):
@@ -66,32 +66,38 @@ class audio_autoencoder(nn.Module):
                 nn.ELU(inplace=True)
                 )
         
-    def forward(self, x):
+    def forward_encoder(self, x):
         x = self.encoder(x)
         
         # reshaping
-        I, J = x.size()[2], x.size()[3]
-        x = x.view(-1, 32 * I *J)
+        x = x.view(-1, 32*5*2)
         
         # FC layers
-        x = nn.Linear(32 * I * J, 128)(x)
+        x = nn.Linear(32*5*2, 128)(x)
         x = nn.Linear(128, 32)(x)
         
         # Average Pooling
         L = nn.AvgPool1d(kernel_size=1)(x.unsqueeze(1))
         #print("Latent dimension =", L.size())
+        return L
         
+    def forward_decoder(self, L):
         # FC Layers
         y = nn.Linear(32,  128)(L)
-        y = nn.Linear(128, 32 * I * J)(y)
+        y = nn.Linear(128, 32*5*2)(y)
         
         # reshaping for decoder
-        y = y.view(1, 32, I, J)
+        y = y.view(1, 32, 5, 2)
         
         # decoding
         x_hat = self.decoder(y)
         x_hat = x_hat[:, :, :92, :42]
 
+        return x_hat
+    
+    def forward(self, x):
+        L     = self.forward_encoder(x)
+        x_hat = self.forward_decoder(L)
         return x_hat
 
 # Optimization definition
