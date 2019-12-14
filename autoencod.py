@@ -20,13 +20,13 @@ preproc = transforms.Compose([
         lambda x: torchaudio.transforms.Resample(44100, target_sr)(x),
         lambda x: torchaudio.transforms.MelSpectrogram(sample_rate=target_sr,
                                                        n_fft=len(x.t().numpy()),
-                                                       win_length=2048,
+                                                       win_length=512, # paper said : 2048
                                                        f_min=30.0,
                                                        f_max=6000.0,
                                                        n_mels=92)(x),
         #transforms.ToTensor(),
         # crop the end
-        lambda x: x[:,:,:26],
+        lambda x: x[:,:,:42],
         transforms.Normalize([0], [1]),
         ])
 
@@ -43,7 +43,7 @@ for truc, label in data_loader:
         print(truc.size())
         test = nn.MaxPool2d(2)(truc)
         print(test.size())
-        test2= nn.ConvTranspose2d(1, 1, kernel_size=3, stride=2, padding=1, output_padding=1)(test)
+        test2= nn.ConvTranspose2d(1, 1, kernel_size=3, stride=2, padding=3, output_padding=0)(test)
         print(test2.size())
         break
 
@@ -103,14 +103,10 @@ class audio_autoencoder(nn.Module):
                 nn.MaxPool2d(2),
                 
                 nn.Conv2d(96, 32, kernel_size=1, stride=1, padding=0),
-                nn.BatchNorm2d(32),
-                #nn.Linear(1, 32),
-                
-                #nn.AvgPool2d(kernel_size=1)
+                nn.BatchNorm2d(32)
                 )
         
         self.decoder = nn.Sequential(
-                #nn.Linear(32, 1),
                 nn.ConvTranspose2d(32, 96, kernel_size=1, stride=1, padding=0),
                 
                 nn.ELU(inplace=True),
@@ -120,9 +116,9 @@ class audio_autoencoder(nn.Module):
                 nn.ELU(inplace=True),
                 nn.ConvTranspose2d(96, 96, kernel_size=3, stride=2, padding=0),
                 nn.ConvTranspose2d(96, 48, kernel_size=3, stride=1, padding=1),
-                
+                # (1, 48, 23, 11)
                 nn.ELU(inplace=True),
-                nn.ConvTranspose2d(48, 48, kernel_size=3, stride=2, padding=0),
+                nn.ConvTranspose2d(48, 48, kernel_size=3, stride=2, padding=1, output_padding=1),
                 nn.ConvTranspose2d(48, 24, kernel_size=3, stride=1, padding=1),
                 
                 nn.ELU(inplace=True),
@@ -134,18 +130,31 @@ class audio_autoencoder(nn.Module):
         
     def forward(self, x):
         x = self.encoder(x)
-        print(x.size())
-        L = x
-        '''
+        
+        # reshaping
         I, J = x.size()[2], x.size()[3]
         x = x.view(-1, 32 * I *J)
-        x = nn.Linear(32 * I * J, 32)(x) # Fully Connected
-        print(x.size())
-        L = nn.AvgPool1d(kernel_size=1)(x)
-        '''
-        print("Latent dimension =", L.size())
-        x = self.decoder(L)
-        return x
+        
+        # FC layers
+        x = nn.Linear(32 * I * J, 128)(x)
+        x = nn.Linear(128, 32)(x)
+        
+        # Average Pooling
+        L = nn.AvgPool1d(kernel_size=1)(x.unsqueeze(1))
+        #print("Latent dimension =", L.size())
+        
+        # FC Layers
+        y = nn.Linear(32,  128)(L)
+        y = nn.Linear(128, 32 * I * J)(y)
+        
+        # reshaping for decoder
+        y = y.view(1, 32, I, J)
+        
+        # decoding
+        x_hat = self.decoder(y)
+        x_hat = x_hat[:, :, :92, :42]
+
+        return x_hat
 
 # Optimization definition
 num_epochs = 20
@@ -156,7 +165,7 @@ learning_rate = 2e-3
 model = audio_autoencoder()
 #print(model)
 
-criterion = nn.MSELoss()
+criterion = nn.functional.mse_loss
 optimizer = torch.optim.Adam(model.parameters(),
                              lr=learning_rate,
                              weight_decay=1e-5)
@@ -167,16 +176,18 @@ for epoch in range(num_epochs):
         spec = data
         # ===== forward  =====
         output = model(spec)
-        print("Sizes:", spec.size(), output.size(), '\n')
+        #print("Sizes:", spec.size(), output.size())
         loss   = criterion(output, spec)
-        
+
         # ===== backward =====
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         
     # ===== log =====
-    print('epoch [{}/{}], loss:{:.4f}'
-          .format(epoch+1,num_epochs, loss.data[0]))
+    print('epoch [{}/{}], loss:{:.4f}'.format(epoch+1,
+                                              num_epochs,
+                                              loss.data.item()))
+    
 
 #torch.save(model.state_dict(), './audio_encoder.pth')
