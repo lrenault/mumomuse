@@ -13,16 +13,24 @@ import torchaudio.transforms
 from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
+import pretty_midi
 
 import loader
 
+filename = 'db/nottingham-dataset-master/MIDI/ashover3.mid'
 target_sr = 22050
+
+midi = pretty_midi.PrettyMIDI(filename)
+data = []
+for instrument in midi.instruments:
+    data.append(instrument.get_piano_roll(fs=20))
+data = torch.Tensor(data)
+
+#%%
 filename = 'db/test.wav'
 
 audio_loader = loader.AudioLoader()
 data_loader  = audio_loader.getYESNOLoader()
-
-
 #%%
 i=0
 for truc, label in data_loader:
