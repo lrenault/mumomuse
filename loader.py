@@ -1,6 +1,6 @@
-import torch
 import torchaudio
 import torchaudio.transforms
+from torch.utils.data import DataLoader
 from torchvision import transforms
 
 
@@ -35,7 +35,7 @@ class AudioLoader():
     def getYESNOLoader(self):
         '''Return loader for the YESNO database'''
         data = self.getYESNOdata()
-        loader = torch.utils.data.DataLoader(data, batch_size=1)
+        loader = DataLoader(data, batch_size=1)
         return loader
     
     
