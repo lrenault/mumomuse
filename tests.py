@@ -14,10 +14,20 @@ from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 import pretty_midi
+import glob
 
+import os
 import loader
 
-filename = 'db/nottingham-dataset-master/MIDI/ashover3.mid'
+path = 'db/nottingham-dataset-master/MIDI'
+for filename in os.listdir(path):
+    print(filename)
+#%%
+for filename in glob.glob(os.path.join(path, '*.mid')):
+    midi = pretty_midi.PrettyMIDI(filename)
+    print(midi)
+#%%
+#filename = 'db/nottingham-dataset-master/MIDI/ashover3.mid'
 target_sr = 22050
 
 midi = pretty_midi.PrettyMIDI(filename)
