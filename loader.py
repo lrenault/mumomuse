@@ -10,18 +10,17 @@ class AudioLoader():
     
     def __init__(self):
         self.preproc = transforms.Compose([
-        lambda x: torchaudio.transforms.Resample(44100, self.target_sr)(x),
-        lambda x: torchaudio.transforms.MelSpectrogram(
-                sample_rate=self.target_sr,
-                n_fft=len(x.t().numpy()),
-                win_length=512, # paper said : 2048
-                f_min=30.0,
-                f_max=6000.0,
-                n_mels=92)(x),
-        #transforms.ToTensor(),
-        # crop the end
-        lambda x: x[:,:,:42],
-        transforms.Normalize([0], [1]),
+                torchaudio.transforms.Resample(44100, self.target_sr),
+                torchaudio.transforms.MelSpectrogram(
+                    sample_rate=self.target_sr,
+                    n_fft=2048,
+                    win_length=2048, # paper said : 2048
+                    f_min=30.0,
+                    f_max=6000.0,
+                    n_mels=92),
+                # crop the end
+                lambda x: x[:,:,:42],
+                transforms.Normalize([0], [1]),
         ])
         
     def getYESNOdata(self):

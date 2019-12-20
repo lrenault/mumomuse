@@ -15,17 +15,18 @@ from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 import pretty_midi
 import glob
-
 import os
+
 import loader
+import datasets
 
 path = 'db/nottingham-dataset-master/MIDI'
-for filename in os.listdir(path):
-    print(filename)
+MIDIset = datasets.MIDIDataset(path)
 #%%
 for filename in glob.glob(os.path.join(path, '*.mid')):
-    midi = pretty_midi.PrettyMIDI(filename)
-    print(midi)
+    print(os.path.splitext(os.path.split(filename)[1])[0])
+    #midi = pretty_midi.PrettyMIDI(filename)
+    #print(midi)
 #%%
 filename = 'db/nottingham-dataset-master/MIDI/ashover3.mid'
 target_sr = 22050
@@ -69,7 +70,7 @@ plt.show()
 
 specgram = torchaudio.transforms.MelSpectrogram(sample_rate=target_sr,
                                                 n_fft=2048,
-                                                #win_length=2048,
+                                                win_length=2048,
                                                 f_min=30.0,
                                                 f_max=6000.0,
                                                 n_mels=92)(waveform)
