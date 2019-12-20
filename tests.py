@@ -27,18 +27,18 @@ for filename in glob.glob(os.path.join(path, '*.mid')):
     midi = pretty_midi.PrettyMIDI(filename)
     print(midi)
 #%%
-#filename = 'db/nottingham-dataset-master/MIDI/ashover3.mid'
+filename = 'db/nottingham-dataset-master/MIDI/ashover3.mid'
 target_sr = 22050
 
 midi = pretty_midi.PrettyMIDI(filename)
 data = []
 for instrument in midi.instruments:
-    data.append(instrument.get_piano_roll(fs=20))
+    data.append(instrument.get_piano_roll(fs=21.54))
 data = torch.Tensor(data)
-
+print(data.size())
 #%%
-filename = 'db/test.wav'
-
+filename = 'db/nottingham-dataset-master/AUDIO/ashover3.wav'
+#%%
 audio_loader = loader.AudioLoader()
 data_loader  = audio_loader.getYESNOLoader()
 #%%
@@ -66,12 +66,12 @@ plt.plot(waveform.t().numpy())
 plt.show()
 
 specgram = torchaudio.transforms.MelSpectrogram(sample_rate=target_sr,
-                                                n_fft=len(waveform.t().numpy()),
-                                                win_length=2048,
+                                                n_fft=2048,
+                                                #win_length=2048,
                                                 f_min=30.0,
                                                 f_max=6000.0,
                                                 n_mels=92)(waveform)
-
+print("specgram finished")
 data_m = specgram[:,:,:42]
 print("Shape of spectrogram: {}".format(specgram.size()))
 
