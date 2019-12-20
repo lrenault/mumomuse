@@ -33,7 +33,9 @@ target_sr = 22050
 midi = pretty_midi.PrettyMIDI(filename)
 data = []
 for instrument in midi.instruments:
-    data.append(instrument.get_piano_roll(fs=21.54))
+    if not instrument.is_drum:
+        data.append(instrument.get_piano_roll(fs=21.54))
+
 data = torch.Tensor(data)
 print(data.size())
 #%%
