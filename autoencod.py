@@ -126,7 +126,7 @@ def train(model, train_loader, optimizer, epoch):
         print('epoch [{}], loss:{:.4f}'.format(epoch+1,
                                               loss.data.item()))
 
-def test(model, test_loader, writer):
+def test(model, test_loader, writer, epoch):
     model.eval()
     test_loss = 0
     with torch.no_grad():
@@ -135,7 +135,7 @@ def test(model, test_loader, writer):
             test_loss += criterion(output, data).data.item()
             
     test_loss /= len(test_loader.dataset)
-    writer.add_scalar('Test loss', test_loss)
+    writer.add_scalar('Test loss', test_loss, epoch)
     
     img = output.squeeze(1)
     writer.add_image('epoch'+str(epoch), img)
@@ -160,7 +160,7 @@ writer = SummaryWriter()
 
 for epoch in range(num_epochs):
     train(model, train_loader, optimizer, epoch)
-    test(model, test_loader, writer)
+    test(model, test_loader, writer, epoch)
 
 writer.close()    
 #%%
