@@ -3,6 +3,7 @@ import torchaudio
 import torchaudio.transforms
 from torch.utils.data import DataLoader
 from torchvision import transforms
+from numpy import pad
 
 import datasets
 
@@ -22,7 +23,7 @@ class AudioLoader():
                 # crop the end
                 lambda x: x[:,:,:42],
                 transforms.Normalize([0], [1]),
-        ])
+                ])
         
     def getYESNOdata(self):
         '''Return data from the YESNO database'''
@@ -44,14 +45,14 @@ class AudioLoader():
     
 class MIDILoader():
     '''MIDI file loader'''
-    def __init_(self):
+    def __init__(self):
         self.frame_rate = 21.54
         self.preproc_stack = transforms.Compose([
                 lambda x: self.getPianoRoll(x)
-        ])
+                ])
         self.preproc_unstack = transforms.Compose([
                 lambda x: self.getPianoRoll(x, stack=False)
-        ])
+                ])
     
     def getPianoRoll(self, midi, stack=True):
         """
@@ -60,16 +61,31 @@ class MIDILoader():
             - stack (bool) : stack all insturment into 1 roll or not
         """
         nb_instru = 0
+        length = 0
         for instrument in midi.instruments:
             if not instrument.is_drum:
                 instruRoll = instrument.get_piano_roll(fs=self.frame_rate)
+                instruLen = instruRoll.shape[1]
                 if nb_instru == 0:
                     if stack:
                         data = instruRoll
+                        length = instruLen
                     else:
                         data = [instruRoll]
                 else :
                     if stack:
+                        if instruLen > length: # instrument score longer than whole track length
+                            data = pad(
+                                    data,
+                                    ((0, 0), (0, instruLen - length))
+                                    )
+                            length = instruLen
+                            
+                        if instruLen < length: # instrument score shorter than whole track length
+                            instruRoll = pad(
+                                    instruRoll,
+                                    ((0, 0), (0, length - instruLen))
+                                    )
                         data += instruRoll
                     else:
                         data.append(instruRoll)

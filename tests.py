@@ -6,6 +6,7 @@ Created on Sat Dec 14 15:30:01 2019
 @author: lrenault
 """
 #%%
+import numpy as np
 import torch
 import torch.nn as nn
 import torchaudio
@@ -18,23 +19,28 @@ import loader
 import datasets
 
 MIDIpath = 'db/nottingham-dataset-master/MIDI'
-rawMIDIset = datasets.MIDIDataset(MIDIpath)
+rawMIDIloader = loader.MIDILoader().loader(MIDIpath)
 
 AUDIOpath = 'db/nottingham-dataset-master/AUDIO'
 rawAUDIOset = datasets.AudioDataset(AUDIOpath)
 
 #%%
-filename = 'db/nottingham-dataset-master/MIDI/ashover3.mid'
+filename = 'db/nottingham-dataset-master/MIDI/reelsr-t64.mid'
 target_sr = 22050
 
 midi = pretty_midi.PrettyMIDI(filename)
 nb_instru = 0
 for instrument in midi.instruments:
     if not instrument.is_drum:
+        roll = instrument.get_piano_roll(fs=21.54)
+        plt.figure(figsize=(20,10))
+        plt.imshow(roll)
+        plt.show()
+        print((roll.shape[1]))
         if nb_instru == 0:
-            data = instrument.get_piano_roll(fs=21.54)
+            data = roll
         else :
-            data += (instrument.get_piano_roll(fs=21.54))
+            data += roll
         nb_instru += 1
         
 
