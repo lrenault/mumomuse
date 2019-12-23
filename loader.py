@@ -25,7 +25,7 @@ class AudioLoader():
                 transforms.Normalize([0], [1]),
                 ])
         
-    def getYESNOdata(self):
+    def get_YESNOdata(self):
         '''Return data from the YESNO database'''
         data = torchaudio.datasets.YESNO(
             "db/",
@@ -33,9 +33,9 @@ class AudioLoader():
             download=True)
         return data
     
-    def getYESNOLoader(self):
+    def get_YESNOLoader(self):
         '''Return loader for the YESNO database'''
-        data = self.getYESNOdata()
+        data = self.get_YESNOdata()
         loader = DataLoader(data, batch_size=1)
         return loader
     
@@ -48,17 +48,17 @@ class MIDILoader():
     def __init__(self):
         self.frame_rate = 21.54
         self.preproc_stack = transforms.Compose([
-                lambda x: self.getPianoRoll(x)
+                lambda x: self.get_PianoRoll(x)
                 ])
         self.preproc_unstack = transforms.Compose([
-                lambda x: self.getPianoRoll(x, stack=False)
+                lambda x: self.get_PianoRoll(x, stack=False)
                 ])
     
-    def getPianoRoll(self, midi, stack=True):
+    def get_PianoRoll(self, midi, stack=True):
         """
         Args:
-            - midi (pretty_midi) : midi data
-            - stack (bool) : stack all insturment into 1 roll or not
+            - midi (pretty_midi) : midi data.
+            - stack (bool) : stack all insturment into 1 piano roll or not.
         """
         nb_instru = 0
         length = 0
@@ -97,7 +97,7 @@ class MIDILoader():
     def loader(self, root_dir, batch_size=1, stackInstruments=True):
         """
         Args:
-            - dataset (torch.utils.data.Dataset): raw midi dataset.
+            - root_dir (torch.utils.data.Dataset): raw midi dataset path.
             - batch_size (int) : loading batch size.
             - stackInstruments (bool): stack all instruments in 1 pianoroll or not
         """
@@ -113,10 +113,50 @@ class MIDILoader():
         loader = DataLoader(dataset, batch_size=batch_size)
         return loader
     
-    def split_and_export(self, root_dir, max_time_bin=42):
+    def split_and_export(
+            self,
+            midi,
+            music_name,
+            max_time_bin=42,
+            export_dir='db/splitAUDIO/'
+            ):
+        """
+        Args:
+            - midi (tensor) : midi tensor to split.
+            - music_name (string) : 
+            - max_time_bin (int) : maximum time bin for exported piano roll tensors.
+            - export_dir (string) : export folder path.
+        """
+        total_length_bin = midi.size()[2]
+        nb_chunks = total_length_bin // max_time_bin
+        
+        for i in range (nb_chunks):
+            pass
+            
+        return None
+    
+    def split_and_export_dataset(
+            self,
+            root_dir,
+            stackInstruments=True,
+            max_time_bin=42,
+            export_dir='db/splitAUDIO/'
+            ):
         """
         Args:
             - root_dir (string) : folder containing raw midi files.
-            - max_time_bin (int) : maximum time bin for preprocessed piano roll tensors.
+            - stackInstruments (bool): stack all instruments in 1 pianoroll or not.
+            - max_time_bin (int) : maximum time bin for exported piano roll tensors.
+            - export_dir (string) : export folder path.
         """
+        midi_loader = self.loader(root_dir, batch_size=1, stackInstruments=stackInstruments)
+        for midi, music_name in midi_loader:
+            self.split_and_export(
+                    midi,
+                    music_name,
+                    max_time_bin=max_time_bin,
+                    export_dir=export_dir
+                    )
+            print(music_name, 'splitted and exported.')
         return None
+        

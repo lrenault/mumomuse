@@ -19,7 +19,7 @@ import loader
 import datasets
 
 MIDIpath = 'db/nottingham-dataset-master/MIDI'
-rawMIDIloader = loader.MIDILoader().loader(MIDIpath)
+rawMIDIloader = loader.MIDILoader().loader(MIDIpath, batch_size=1)
 
 AUDIOpath = 'db/nottingham-dataset-master/AUDIO'
 rawAUDIOset = datasets.AudioDataset(AUDIOpath)
@@ -48,7 +48,7 @@ data = torch.Tensor(data)
 print(data.size())
 #%%
 audio_loader = loader.AudioLoader()
-data_loader  = audio_loader.getYESNOLoader()
+data_loader  = audio_loader.get_YESNOLoader()
 #%%
 i=0
 for truc, label in data_loader:
