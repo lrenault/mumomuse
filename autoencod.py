@@ -1,18 +1,27 @@
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
-import matplotlib.pyplot as plt
 
 import loader
 
 audio_loader = loader.AudioLoader()
-data_loader = audio_loader.getYESNOLoader()
+dataset = audio_loader.getYESNOdata()
 
-#%% network definitions
-class audio_autoencoder(nn.Module):
+# train-test split
+set_size   = len(dataset)
+train_size = int(set_size * 0.8)
+train_set, test_set = torch.utils.data.random_split(
+        dataset,
+        [train_size, set_size - train_size])
+
+# loaders
+train_loader = torch.utils.data.DataLoader(train_set, batch_size=1)
+test_loader  = torch.utils.data.DataLoader(test_set,  batch_size=1)
+
+#%% networks definition
+class audio_encoder(nn.Module):
     def __init__(self):
-        
-        super(audio_autoencoder, self).__init__()
+        super(audio_encoder, self).__init__()
         
         self.encoder = nn.Sequential(
                 nn.Conv2d(1,  24, kernel_size=3, stride=1, padding=1),
@@ -43,6 +52,20 @@ class audio_autoencoder(nn.Module):
                 nn.BatchNorm2d(32)
                 )
         
+    def forward(self, x):
+        x = self.encoder(x)
+        x = x.view(-1, 32*5*2)          # reshaping
+        # FC layers
+        x = nn.Linear(32*5*2, 128)(x)
+        x = nn.Linear(128, 32)(x)
+        L = nn.AvgPool1d(kernel_size=1)(x.unsqueeze(1))
+        #print("Latent dimension =", L.size())
+        return L
+
+class audio_decoder(nn.Module):
+    def __init__(self):        
+        super(audio_decoder, self).__init__()
+        
         self.decoder = nn.Sequential(
                 nn.ConvTranspose2d(32, 96, kernel_size=1, stride=1, padding=0),
                 
@@ -64,50 +87,67 @@ class audio_autoencoder(nn.Module):
                 nn.ConvTranspose2d(24, 1,  kernel_size=3, stride=1, padding=1),
                 
                 nn.ELU(inplace=True)
-                )
+                )        
         
-    def forward_encoder(self, x):
-        x = self.encoder(x)
-        
-        # reshaping
-        x = x.view(-1, 32*5*2)
-        
-        # FC layers
-        x = nn.Linear(32*5*2, 128)(x)
-        x = nn.Linear(128, 32)(x)
-        
-        # Average Pooling
-        L = nn.AvgPool1d(kernel_size=1)(x.unsqueeze(1))
-        #print("Latent dimension =", L.size())
-        return L
-        
-    def forward_decoder(self, L):
+    def forward(self, L):
         # FC Layers
         y = nn.Linear(32,  128)(L)
         y = nn.Linear(128, 32*5*2)(y)
-        
-        # reshaping for decoder
-        y = y.view(1, 32, 5, 2)
-        
-        # decoding
+        y = y.view(1, 32, 5, 2)             # reshaping
         x_hat = self.decoder(y)
-        x_hat = x_hat[:, :, :92, :42]
+        x_hat = x_hat[:, :, :92, :42]       #crop
 
         return x_hat
-    
+
+class audio_AE(nn.Module):
+    def __init__(self):
+        super(audio_AE, self).__init__()
+        
+        self.AE = nn.Sequential(
+                audio_encoder(),
+                audio_decoder(),
+                )
     def forward(self, x):
-        L     = self.forward_encoder(x)
-        x_hat = self.forward_decoder(L)
+        x_hat = self.AE(x)
         return x_hat
 
+#%% train and test definition
+def train(model, train_loader, optimizer, epoch):
+    model.train()
+    for data, label in train_loader:
+        # forward
+        output = model(data)
+        loss   = criterion(output, data)
+        
+        # backward
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+        print('epoch [{}], loss:{:.4f}'.format(epoch+1,
+                                              loss.data.item()))
+
+def test(model, test_loader, writer, epoch):
+    model.eval()
+    test_loss = 0
+    with torch.no_grad():
+        for data, label in test_loader:
+            output = model(data)
+            test_loss += criterion(output, data).data.item()
+            
+    test_loss /= len(test_loader.dataset)
+    writer.add_scalar('Test loss', test_loss, epoch)
+    
+    img = output.squeeze(1)
+    writer.add_image('epoch'+str(epoch), img)
+
+#%%
 # Optimization definition
 num_epochs = 20
 batch_size = 100
 learning_rate = 2e-3
     
-    
-model = audio_autoencoder()
-#print(model)
+model = audio_AE()
 
 criterion = nn.functional.mse_loss
 optimizer = torch.optim.Adam(model.parameters(),
@@ -118,29 +158,9 @@ optimizer = torch.optim.Adam(model.parameters(),
 writer = SummaryWriter()
 
 for epoch in range(num_epochs):
-    for data, label in data_loader:
-        spec = data
-        # ===== forward  =====
-        output = model(spec)
-        #print("Sizes:", spec.size(), output.size())
-        loss   = criterion(output, spec)
-
-        # ===== backward =====
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        
-    # ===== log =====
-    print('epoch [{}/{}], loss:{:.4f}'.format(epoch+1,
-                                              num_epochs,
-                                              loss.data.item()))
-    img = output.squeeze(1)
-    writer.add_image('epoch'+str(epoch), img)
-    
-    plt.figure(figsize=(10,5))
-    plt.imshow(output[0,0,:,:].detach().numpy(), origin='lower')
-    plt.show()
+    train(model, train_loader, optimizer, epoch)
+    test(model, test_loader, writer, epoch)
 
 writer.close()    
 #%%
-torch.save(model.state_dict(), './models/audio_AE.pth')
+torch.save(model.state_dict(), './models/audio_AE3.pth')
