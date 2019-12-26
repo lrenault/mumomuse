@@ -19,10 +19,15 @@ import loader
 import datasets
 
 MIDIpath = 'db/nottingham-dataset-master/MIDI'
-rawMIDIloader = loader.MIDILoader().loader(MIDIpath, batch_size=1)
+midiLoader = loader.MIDILoader()
+rawMIDIloader = midiLoader.loader(MIDIpath, batch_size=1)
 
 AUDIOpath = 'db/nottingham-dataset-master/AUDIO'
 rawAUDIOset = datasets.AudioDataset(AUDIOpath)
+#%%
+for midi, name in rawMIDIloader:
+    midiLoader.split_and_export(midi, name[0])
+    break
 
 #%%
 filename = 'db/nottingham-dataset-master/MIDI/reelsr-t64.mid'

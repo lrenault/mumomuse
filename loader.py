@@ -20,8 +20,6 @@ class AudioLoader():
                     f_min=30.0,
                     f_max=6000.0,
                     n_mels=92),
-                # crop the end
-                lambda x: x[:,:,:42],
                 transforms.Normalize([0], [1]),
                 ])
         
@@ -58,7 +56,7 @@ class MIDILoader():
         """
         Args:
             - midi (pretty_midi) : midi data.
-            - stack (bool) : stack all insturment into 1 piano roll or not.
+            - stack (bool) : if True, stack all insturment into 1 piano roll.
         """
         nb_instru = 0
         length = 0
@@ -118,7 +116,7 @@ class MIDILoader():
             midi,
             music_name,
             max_time_bin=42,
-            export_dir='db/splitAUDIO/'
+            export_dir='db/splitMIDI/'
             ):
         """
         Args:
@@ -131,8 +129,8 @@ class MIDILoader():
         nb_chunks = total_length_bin // max_time_bin
         
         for i in range (nb_chunks):
-            pass
-            
+            chunk = midi[:, :, i * 42 : (i + 1) * 42]
+            torch.save(chunk, export_dir + music_name + '_' + str(i) + '.pt')   
         return None
     
     def split_and_export_dataset(
@@ -140,12 +138,12 @@ class MIDILoader():
             root_dir,
             stackInstruments=True,
             max_time_bin=42,
-            export_dir='db/splitAUDIO/'
+            export_dir='db/splitMIDI/'
             ):
         """
         Args:
             - root_dir (string) : folder containing raw midi files.
-            - stackInstruments (bool): stack all instruments in 1 pianoroll or not.
+            - stackInstruments (bool): if True, stack all instruments into 1 pianoroll.
             - max_time_bin (int) : maximum time bin for exported piano roll tensors.
             - export_dir (string) : export folder path.
         """
@@ -153,7 +151,7 @@ class MIDILoader():
         for midi, music_name in midi_loader:
             self.split_and_export(
                     midi,
-                    music_name,
+                    music_name[0],
                     max_time_bin=max_time_bin,
                     export_dir=export_dir
                     )
