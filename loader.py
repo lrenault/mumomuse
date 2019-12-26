@@ -126,11 +126,11 @@ class MIDILoader():
             - export_dir (string) : export folder path.
         """
         total_length_bin = midi.size()[2]
-        nb_chunks = total_length_bin // max_time_bin
+        nb_snippets = total_length_bin // max_time_bin
         
-        for i in range (nb_chunks):
-            chunk = midi[:, :, i * 42 : (i + 1) * 42]
-            torch.save(chunk, export_dir + music_name + '_' + str(i) + '.pt')   
+        for i in range (nb_snippets):
+            snippet = midi[:, :, i * 42 : (i + 1) * 42]
+            torch.save(snippet, export_dir + music_name + '_' + str(i) + '.pt')   
         return None
     
     def split_and_export_dataset(
@@ -141,6 +141,7 @@ class MIDILoader():
             export_dir='db/splitMIDI/'
             ):
         """
+        Import a MIDI dataset, transform, split and exports its files into inputtable tensors.
         Args:
             - root_dir (string) : folder containing raw midi files.
             - stackInstruments (bool): if True, stack all instruments into 1 pianoroll.
@@ -158,3 +159,8 @@ class MIDILoader():
             print(music_name, 'splitted and exported.')
         return None
         
+    def midi_snippets_loader(self, batch_size=1, root_dir='db/splitMIDI'):
+        """ MIDI snippets tensors loader """
+        dataset = datasets.Snippets(root_dir)
+        loader  = DataLoader(dataset, batch_size=batch_size)
+        return loader
