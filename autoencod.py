@@ -2,10 +2,16 @@ import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
+import datasets
 import loader
 
-audio_loader = loader.AudioLoader()
-dataset = audio_loader.getYESNOdata()
+MODE = 'midi'
+
+if MODE == 'midi':
+    dataset = datasets.Snippets('db/splitMIDI')
+elif MODE == 'audio':
+    audio_loader = loader.AudioLoader()
+    dataset = audio_loader.getYESNOdata()
 
 # train-test split
 set_size   = len(dataset)
@@ -18,7 +24,7 @@ train_set, test_set = torch.utils.data.random_split(
 train_loader = torch.utils.data.DataLoader(train_set, batch_size=1)
 test_loader  = torch.utils.data.DataLoader(test_set,  batch_size=1)
 
-#%% networks definition
+#%% Audio networks definition
 class audio_encoder(nn.Module):
     def __init__(self):
         super(audio_encoder, self).__init__()
@@ -97,7 +103,7 @@ class audio_decoder(nn.Module):
         x_hat = self.decoder(y)
         x_hat = x_hat[:, :, :92, :42]       #crop
 
-        return x_hat
+        return x_hat()
 
 class audio_AE(nn.Module):
     def __init__(self):
@@ -111,6 +117,72 @@ class audio_AE(nn.Module):
         x_hat = self.AE(x)
         return x_hat
 
+#%% MIDI networks definitnion
+class midi_encoder(nn.Module):
+    def __init__(self):
+        super(midi_encoder, self).__init__()
+        
+        self.encoder = nn.Sequential(
+                nn.Conv2d(1,  24, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(24, 24, kernel_size=3, stride=1, padding=1),
+                nn.BatchNorm2d(24),
+                nn.ELU(inplace=True),
+                nn.MaxPool2d(2),
+                
+                nn.Conv2d(24, 48, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(48, 48, kernel_size=3, stride=1, padding=1),
+                nn.BatchNorm2d(48),
+                nn.ELU(inplace=True),
+                nn.MaxPool2d(2),
+                
+                nn.Conv2d(48, 96, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(96, 96, kernel_size=3, stride=1, padding=1),
+                nn.BatchNorm2d(96),
+                nn.ELU(inplace=True),
+                nn.MaxPool2d(2),
+                
+                nn.Conv2d(96, 96, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(96, 96, kernel_size=3, stride=1, padding=1),
+                nn.BatchNorm2d(96),
+                nn.ELU(inplace=True),
+                nn.MaxPool2d(2),
+                
+                nn.Conv2d(96, 32, kernel_size=1, stride=1, padding=0),
+                nn.BatchNorm2d(32)
+                )
+    
+    def forward(self, x):
+        x = self.encoder(x)
+        x = x.view(-1, 32*8*2)          # reshaping
+        # FC layers
+        x = nn.Linear(32*8*2, 512)(x)
+        x = nn.Linear(512, 128)(x)
+        x = nn.Linear(128, 32)(x)
+        L = nn.AvgPool1d(kernel_size=1)(x.unsqueeze(1))
+        print("Latent dimension =", L.size())
+        return L
+
+class midi_decoder(nn.Module):
+    def __init__(self):
+        super(midi_decoder, self).__init__()
+        
+        self.decoder = nn.Sequential()
+    
+    def forward(self, L):
+        return L
+    
+class midi_AE(nn.Module):
+    def __init__(self):
+        super(midi_AE, self).__init__()
+        
+        self.AE = nn.Sequential(
+                midi_encoder(),
+                midi_decoder(),
+                )
+    def forward(self, x):
+        x_hat = self.AE(x)
+        return x_hat
+        
 #%% train and test definition
 def train(model, train_loader, optimizer, epoch):
     model.train()
@@ -146,8 +218,11 @@ def test(model, test_loader, writer, epoch):
 num_epochs = 20
 batch_size = 100
 learning_rate = 2e-3
-    
-model = audio_AE()
+
+if MODE == 'midi':
+    model = midi_AE()
+else:
+    model = audio_AE()
 
 criterion = nn.functional.mse_loss
 optimizer = torch.optim.Adam(model.parameters(),
@@ -163,4 +238,7 @@ for epoch in range(num_epochs):
 
 writer.close()    
 #%%
-torch.save(model.state_dict(), './models/audio_AE3.pth')
+if MODE == 'audio':
+    torch.save(model.state_dict(), './models/audio_AE3.pth')
+else:
+    torch.save(model.state_dict(), './models/midi_AE.pth')
