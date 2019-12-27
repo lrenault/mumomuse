@@ -5,11 +5,11 @@ from torch.utils.tensorboard import SummaryWriter
 import datasets
 import loader
 
-MODE = 'midi'
+MIDI_MODE = True
 
-if MODE == 'midi':
+if MIDI_MODE:
     dataset = datasets.Snippets('db/splitMIDI')
-elif MODE == 'audio':
+else:
     audio_loader = loader.AudioLoader()
     dataset = audio_loader.getYESNOdata()
 
@@ -82,7 +82,7 @@ class audio_decoder(nn.Module):
                 nn.ELU(inplace=True),
                 nn.ConvTranspose2d(96, 96, kernel_size=3, stride=2, padding=0),
                 nn.ConvTranspose2d(96, 48, kernel_size=3, stride=1, padding=1),
-                # (1, 48, 23, 11)
+                
                 nn.ELU(inplace=True),
                 nn.ConvTranspose2d(48, 48, kernel_size=3, stride=2, padding=1,
                                                           output_padding=1),
@@ -93,7 +93,7 @@ class audio_decoder(nn.Module):
                 nn.ConvTranspose2d(24, 1,  kernel_size=3, stride=1, padding=1),
                 
                 nn.ELU(inplace=True)
-                )        
+                )
         
     def forward(self, L):
         # FC Layers
@@ -103,7 +103,7 @@ class audio_decoder(nn.Module):
         x_hat = self.decoder(y)
         x_hat = x_hat[:, :, :92, :42]       #crop
 
-        return x_hat()
+        return x_hat
 
 class audio_AE(nn.Module):
     def __init__(self):
@@ -155,21 +155,52 @@ class midi_encoder(nn.Module):
         x = self.encoder(x)
         x = x.view(-1, 32*8*2)          # reshaping
         # FC layers
-        x = nn.Linear(32*8*2, 512)(x)
-        x = nn.Linear(512, 128)(x)
+        x = nn.Linear(32*8*2, 256)(x)
+        x = nn.Linear(256, 128)(x)
         x = nn.Linear(128, 32)(x)
         L = nn.AvgPool1d(kernel_size=1)(x.unsqueeze(1))
-        print("Latent dimension =", L.size())
+        #print("Latent dimension =", L.size())
         return L
 
 class midi_decoder(nn.Module):
     def __init__(self):
         super(midi_decoder, self).__init__()
         
-        self.decoder = nn.Sequential()
+        self.decoder = nn.Sequential(
+                nn.ConvTranspose2d(32, 96, kernel_size=1, stride=1, padding=0),
+                
+                nn.ELU(inplace=True),
+                nn.ConvTranspose2d(96, 96, kernel_size=3, stride=2, padding=0),
+                nn.ConvTranspose2d(96, 96, kernel_size=3, stride=1, padding=1),
+                
+                nn.ELU(inplace=True),
+                nn.ConvTranspose2d(96, 96, kernel_size=3, stride=2, padding=1,
+                                   output_padding=1),
+                nn.ConvTranspose2d(96, 48, kernel_size=3, stride=1, padding=1),
+
+                nn.ELU(inplace=True),
+                nn.ConvTranspose2d(48, 48, kernel_size=3, stride=2, padding=0),
+                nn.ConvTranspose2d(48, 24, kernel_size=3, stride=1, padding=1),
+                
+                nn.ELU(inplace=True),
+                nn.ConvTranspose2d(24, 24, kernel_size=3, stride=2, padding=1,
+                                   output_padding=1),
+                nn.ConvTranspose2d(24, 1,  kernel_size=3, stride=1, padding=1),
+                
+                nn.ELU(inplace=True)
+                )
     
     def forward(self, L):
-        return L
+        # FC Layers
+        y = nn.Linear(32,  128)(L)
+        y = nn.Linear(128, 256)(y)
+        y = nn.Linear(256, 32*8*2)(y)
+        y = y.view(1, 32, 8, 2)             # reshaping
+        x_hat = self.decoder(y)
+        #print("Reconstructed dimension:", x_hat.size())
+        x_hat = x_hat[:, :, :128, :]       #crop
+
+        return x_hat
     
 class midi_AE(nn.Module):
     def __init__(self):
@@ -210,7 +241,7 @@ def test(model, test_loader, writer, epoch):
     test_loss /= len(test_loader.dataset)
     writer.add_scalar('Test loss', test_loss, epoch)
     
-    img = output.squeeze(1)
+    img = output.squeeze(0)
     writer.add_image('epoch'+str(epoch), img)
 
 #%%
@@ -219,7 +250,7 @@ num_epochs = 20
 batch_size = 100
 learning_rate = 2e-3
 
-if MODE == 'midi':
+if MIDI_MODE:
     model = midi_AE()
 else:
     model = audio_AE()
@@ -228,7 +259,6 @@ criterion = nn.functional.mse_loss
 optimizer = torch.optim.Adam(model.parameters(),
                              lr=learning_rate,
                              weight_decay=1e-5)
-
 #%% Optimization run
 writer = SummaryWriter()
 
@@ -238,7 +268,7 @@ for epoch in range(num_epochs):
 
 writer.close()    
 #%%
-if MODE == 'audio':
-    torch.save(model.state_dict(), './models/audio_AE3.pth')
-else:
+if MIDI_MODE:
     torch.save(model.state_dict(), './models/midi_AE.pth')
+else:
+    torch.save(model.state_dict(), './models/audio_AE3.pth')
