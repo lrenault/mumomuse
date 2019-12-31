@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
+import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 
 import datasets
 import loader
 
 MIDI_MODE = True
+small_test = True
 
 if MIDI_MODE:
     dataset = datasets.Snippets('db/splitMIDI')
@@ -19,6 +21,14 @@ train_size = int(set_size * 0.8)
 train_set, test_set = torch.utils.data.random_split(
         dataset,
         [train_size, set_size - train_size])
+
+if small_test:
+    train_set, train_leftlovers = torch.utils.data.random_split(
+            train_set,
+            [320, len(train_set) - 320])
+    test_set, test_leftlovers = torch.utils.data.random_split(
+            test_set,
+            [64, len(test_set) - 64])
 
 # loaders
 train_loader = torch.utils.data.DataLoader(train_set, batch_size=1)
@@ -227,8 +237,7 @@ def train(model, train_loader, optimizer, epoch):
         loss.backward()
         optimizer.step()
         
-        print('epoch [{}], loss:{:.4f}'.format(epoch+1,
-                                              loss.data.item()))
+        #print('epoch [{}], loss:{:.4f}'.format(epoch+1, loss.data.item()))
 
 def test(model, test_loader, writer, epoch):
     model.eval()
@@ -243,10 +252,12 @@ def test(model, test_loader, writer, epoch):
     
     img = output.squeeze(0)
     writer.add_image('epoch'+str(epoch), img)
+    plt.imshow(img.squeeze(0))
+    plt.show()
 
 #%%
 # Optimization definition
-num_epochs = 20
+num_epochs = 15
 batch_size = 100
 learning_rate = 2e-3
 
@@ -264,7 +275,9 @@ writer = SummaryWriter()
 
 for epoch in range(num_epochs):
     train(model, train_loader, optimizer, epoch)
+    print('epoch [{}], end of training.'.format(epoch+1))
     test(model, test_loader, writer, epoch)
+    print('epoch [{}], end of testing'.format(epoch+1))
 
 writer.close()    
 #%%
