@@ -1,38 +1,4 @@
-import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
-from torch.utils.tensorboard import SummaryWriter
-
-import datasets
-import loader
-
-MIDI_MODE = True
-small_test = True
-
-if MIDI_MODE:
-    dataset = datasets.Snippets('db/splitMIDI')
-else:
-    audio_loader = loader.AudioLoader()
-    dataset = audio_loader.getYESNOdata()
-
-# train-test split
-set_size   = len(dataset)
-train_size = int(set_size * 0.8)
-train_set, test_set = torch.utils.data.random_split(
-        dataset,
-        [train_size, set_size - train_size])
-
-if small_test:
-    train_set, train_leftlovers = torch.utils.data.random_split(
-            train_set,
-            [320, len(train_set) - 320])
-    test_set, test_leftlovers = torch.utils.data.random_split(
-            test_set,
-            [64, len(test_set) - 64])
-
-# loaders
-train_loader = torch.utils.data.DataLoader(train_set, batch_size=1)
-test_loader  = torch.utils.data.DataLoader(test_set,  batch_size=1)
 
 #%% Audio networks definition
 class audio_encoder(nn.Module):
@@ -70,7 +36,7 @@ class audio_encoder(nn.Module):
         
     def forward(self, x):
         x = self.encoder(x)
-        x = x.view(-1, 32*5*2)          # reshaping
+        x = x.view(-1, 32*5*2)
         # FC layers
         x = nn.Linear(32*5*2, 128)(x)
         x = nn.Linear(128, 32)(x)
@@ -109,10 +75,11 @@ class audio_decoder(nn.Module):
         # FC Layers
         y = nn.Linear(32,  128)(L)
         y = nn.Linear(128, 32*5*2)(y)
-        y = y.view(1, 32, 5, 2)             # reshaping
+        
+        y = y.view(1, 32, 5, 2)
         x_hat = self.decoder(y)
+        
         x_hat = x_hat[:, :, :92, :42]       #crop
-
         return x_hat
 
 class audio_AE(nn.Module):
@@ -163,7 +130,7 @@ class midi_encoder(nn.Module):
     
     def forward(self, x):
         x = self.encoder(x)
-        x = x.view(-1, 32*8*2)          # reshaping
+        x = x.view(-1, 32*8*2)
         # FC layers
         x = nn.Linear(32*8*2, 256)(x)
         x = nn.Linear(256, 128)(x)
@@ -205,11 +172,11 @@ class midi_decoder(nn.Module):
         y = nn.Linear(32,  128)(L)
         y = nn.Linear(128, 256)(y)
         y = nn.Linear(256, 32*8*2)(y)
-        y = y.view(1, 32, 8, 2)             # reshaping
+        
+        y = y.view(1, 32, 8, 2)
         x_hat = self.decoder(y)
-        #print("Reconstructed dimension:", x_hat.size())
+        
         x_hat = x_hat[:, :, :128, :]       #crop
-
         return x_hat
     
 class midi_AE(nn.Module):
@@ -223,65 +190,16 @@ class midi_AE(nn.Module):
     def forward(self, x):
         x_hat = self.AE(x)
         return x_hat
-        
-#%% train and test definition
-def train(model, train_loader, optimizer, epoch):
-    model.train()
-    for data, label in train_loader:
-        # forward
-        output = model(data)
-        loss   = criterion(output, data)
-        
-        # backward
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        
-        #print('epoch [{}], loss:{:.4f}'.format(epoch+1, loss.data.item()))
 
-def test(model, test_loader, writer, epoch):
-    model.eval()
-    test_loss = 0
-    with torch.no_grad():
-        for data, label in test_loader:
-            output = model(data)
-            test_loss += criterion(output, data).data.item()
-            
-    test_loss /= len(test_loader.dataset)
-    writer.add_scalar('Test loss', test_loss, epoch)
+#%% multimodal network
+class multimodal(nn.Module):
+    def __init__(self):
+        super(multimodal, self).__init__()
+        
+        self.f = midi_encoder()
+        self.g = audio_encoder()
     
-    img = output.squeeze(0)
-    writer.add_image('epoch'+str(epoch), img)
-    plt.imshow(img.squeeze(0))
-    plt.show()
-
-#%%
-# Optimization definition
-num_epochs = 15
-batch_size = 100
-learning_rate = 2e-3
-
-if MIDI_MODE:
-    model = midi_AE()
-else:
-    model = audio_AE()
-
-criterion = nn.functional.mse_loss
-optimizer = torch.optim.Adam(model.parameters(),
-                             lr=learning_rate,
-                             weight_decay=1e-5)
-#%% Optimization run
-writer = SummaryWriter()
-
-for epoch in range(num_epochs):
-    train(model, train_loader, optimizer, epoch)
-    print('epoch [{}], end of training.'.format(epoch+1))
-    test(model, test_loader, writer, epoch)
-    print('epoch [{}], end of testing'.format(epoch+1))
-
-writer.close()    
-#%%
-if MIDI_MODE:
-    torch.save(model.state_dict(), './models/midi_AE.pth')
-else:
-    torch.save(model.state_dict(), './models/audio_AE3.pth')
+    def forward(self, midi, audio):
+        x = self.f(midi)
+        y = self.g(audio)
+        return x, y
