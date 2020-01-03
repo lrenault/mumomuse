@@ -129,7 +129,7 @@ class MIDILoader():
         nb_snippets = total_length_bin // max_time_bin
         
         for i in range (nb_snippets):
-            snippet = midi[:, :, i * 42 : (i + 1) * 42]
+            snippet = midi[:, :, i * max_time_bin : (i + 1) * max_time_bin]
             torch.save(snippet, export_dir + music_name + '_' + str(i) + '.pt')   
         return None
     

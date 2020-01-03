@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
+from torch.utils.data import DataLoader
+from torch.utils.data.sampler import SubsetRandomSampler
 from torch.utils.tensorboard import SummaryWriter
 
 import datasets
@@ -10,7 +12,7 @@ import autoencod
 dataset_reduced_to = 320 # for small dataset. None for no dataset reduction
 MODE = 'MUMOMUSE' # 'AUDIO_AE', 'MIDI_AE'
 
-#%% Dataset construction
+#%% Snippet Dataset construction 
 midi_dataset  = datasets.Snippets('db/splitMIDI')
 audio_dataset = datasets.Snippets('db/splitAUDIO')
 
@@ -28,8 +30,6 @@ if len(audio_dataset) == 0:
     #audio_loader.split_and_export_dataset(audiopath)
     audio_dataset = datasets.Snippets('db/splitAUDIO')
 
-labels = midi_dataset.labels
-
 #%% Train-test split
 set_size = len(midi_dataset)
 
@@ -45,25 +45,38 @@ midi_train_set, midi_test_set = torch.utils.data.random_split(
         midi_dataset,
         [train_size, set_size - train_size])
 
-midi_train_loader = torch.utils.data.DataLoader(midi_train_set, num_workers=3)
-midi_test_lodaer  = torch.utils.data.DataLoader(midi_test_set)
+midi_snippet_train_loader = DataLoader(midi_train_set, num_workers=3)
+midi_snippet_test_loader  = DataLoader(midi_test_set)
 
-##### TO DO : correspondance with audio snippets dataset
-#
-#
-#
-#
-#
-#
-#
+#%% Correspondance with audio dataset
+music_names = audio_dataset.labels
+idxs = list(range(len(audio_dataset)))
+
+correspondance_dict = dict(zip(music_names, idxs))
+
 if MODE == 'MUMOMUSE':
     pass
+
 elif MODE == 'MIDI_AE':
-    train_loader = midi_train_loader
-    test_lodaer  = midi_test_lodaer
+    train_loader = midi_snippet_train_loader
+    test_lodaer  = midi_snippet_test_loader
+    
 else: #'AUDIO_AE'
-    train_loader = audio_train_loader
-    test_loader  = audio_test_lodaer
+    train_indices = []
+    test_indices  = []
+    
+    for snippet, label in midi_snippet_train_loader:
+        train_indices.append(correspondance_dict(label))
+    
+    for snippet, label in midi_snippet_test_loader:
+        test_indices.append(correspondance_dict(label))
+        
+    train_sampler = SubsetRandomSampler(train_indices)
+    test_sampler  = SubsetRandomSampler(test_indices)
+    
+    train_loader = DataLoader(audio_dataset, sampler=train_sampler)
+    test_loader  = DataLoader(audio_dataset, sampler=test_sampler)
+
 #%% train and test definition
 def train_AE(model, train_loader, optimizer, criterion, epoch):
     """ Training method for auto-encoders.
