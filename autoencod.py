@@ -2,6 +2,7 @@ import torch.nn as nn
 
 #%% Audio networks definition
 class audio_encoder(nn.Module):
+    """ Encode an audio snippet spectrogram into the latent space. """
     def __init__(self):
         super(audio_encoder, self).__init__()
         
@@ -45,6 +46,7 @@ class audio_encoder(nn.Module):
         return L
 
 class audio_decoder(nn.Module):
+    """ Reconstruct the embedded audio snippet back into a spectrogram. """
     def __init__(self):        
         super(audio_decoder, self).__init__()
         
@@ -83,6 +85,7 @@ class audio_decoder(nn.Module):
         return x_hat
 
 class audio_AE(nn.Module):
+    """ Autoencoder for audio snippet. """
     def __init__(self):
         super(audio_AE, self).__init__()
         
@@ -96,6 +99,7 @@ class audio_AE(nn.Module):
 
 #%% MIDI networks definitnion
 class midi_encoder(nn.Module):
+    """ Encode a MIDI piano roll snippet in the latent space. """
     def __init__(self):
         super(midi_encoder, self).__init__()
         
@@ -140,6 +144,7 @@ class midi_encoder(nn.Module):
         return L
 
 class midi_decoder(nn.Module):
+    """ Reconstruct the embedded MIDI snippet back to piano roll. """
     def __init__(self):
         super(midi_decoder, self).__init__()
         
@@ -180,6 +185,7 @@ class midi_decoder(nn.Module):
         return x_hat
     
 class midi_AE(nn.Module):
+    """ Autoencoder for MIDI piano roll snippets. """
     def __init__(self):
         super(midi_AE, self).__init__()
         
@@ -193,6 +199,7 @@ class midi_AE(nn.Module):
 
 #%% multimodal network
 class multimodal(nn.Module):
+    """ Multimodal encoder into the latent space. """
     def __init__(self):
         super(multimodal, self).__init__()
         

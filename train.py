@@ -8,6 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 import datasets
 import loader
 import autoencod
+import utils
 
 dataset_reduced_to = 320 # for small dataset. None for no dataset reduction
 MODE = 'MUMOMUSE' # 'AUDIO_AE', 'MIDI_AE'
@@ -148,8 +149,7 @@ learning_rate = 2e-3
 
 if MODE == 'MUMOMUSE':
     model = autoencod.multimodal()
-    #criterion = custom loss
-
+    criterion = utils.pairwise_ranking_objective()
 else:
     if MODE == 'MIDI_AE':
         model = autoencod.midi_AE()

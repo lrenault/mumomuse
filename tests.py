@@ -17,6 +17,7 @@ import pretty_midi
 
 import loader
 import datasets
+import utils
 
 MIDIpath = 'db/nottingham-dataset-master/MIDI'
 midiLoader = loader.MIDILoader()
@@ -60,27 +61,21 @@ audio_loader = loader.AudioLoader()
 data_loader  = audio_loader.get_YESNOLoader()
 #%%
 i=0
+chose = 0
 for truc, label in data_loader:
-    print(truc.size())
     i+=1
     if i > 5:
-        print(truc.size())
-        test = nn.MaxPool2d(2)(truc)
-        print(test.size())
-        test2= nn.ConvTranspose2d(1, 1, kernel_size=3, stride=2, padding=3, output_padding=0)(test)
-        print(test2.size())
+        chose = utils.s(truc, machin)
+        
         break
-
+    machin = truc
 #%%
-
+filename = 'db/nottingham-dataset-master/AUDIO/ashover3.wav'
 # load audio
 waveform, origin_sr = torchaudio.load(filename)
 # take only first channel and 22.05kHz sampling rate
 waveform = torchaudio.transforms.Resample(origin_sr,
                                           target_sr)(waveform[0,:].view(1,-1)) 
-
-plt.plot(waveform.t().numpy())
-plt.show()
 
 specgram = torchaudio.transforms.MelSpectrogram(sample_rate=target_sr,
                                                 n_fft=2048,
