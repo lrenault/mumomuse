@@ -103,14 +103,16 @@ def train_AE(model, train_loader, optimizer, criterion, epoch):
     return None
 
 
-def test_AE(model, test_loader, writer, criterion, epoch):
+def test_AE(model, test_loader, criterion, writer, epoch):
     """ Testing method for autoencoders.
     Args :
         - model (nn.Module) : autoencoder model to test.
         - test_lodaer (DataLoader) : Dataloader of the test set.
-        - writer (SummaryWriter) : for data log.
         - criterion (nn.Functional) : loss function.
+        - writer (SummaryWriter) : for data log.
         - epoch (int) : testing iteration number.
+    Output :
+        - test_loss (loss) : computed loss value.
     """
     model.eval()
     test_loss = 0
@@ -135,13 +137,66 @@ def test_AE(model, test_loader, writer, criterion, epoch):
     plt.title('Reconstructed')
     plt.show()
     
+    return test_loss
+
+def train_multimodal(model, midi_train_loader, audio_dataset, correspondance,
+                     optimizer, criterion, epoch):
+    """ Training method for multimodal network.
+    Args :
+        - model (nn.Module) : model to train.
+        - midi_train_loader (DataLoader) : Loader of the MIDI training set.
+        - audio_dataset (Dataset) : Audio dataset.
+        - correspondance (Dict) : correspondance dictionnary between audio and midi datasets.
+        - optimizer (optim) : optimization method.
+        - criterion (nn.Module) : loss function.
+        - epoch (int) : training iteration number.
+    """
+    model.train()
+    for midi_snippet, label in midi_train_loader:
+        # batch generation
+        batch_idxs = torch.LongTensor(99).random(len(audio_dataset)) # TO BE CHANGED
+        # forward
+        emb_midi, emb_audio = model(midi_snippet,
+                                    audio_dataset[correspondance[label]][0])
+        emb_anti_audio = [model.g(audio_dataset[idx][0]) for idx in batch_idxs]
+        loss = criterion(emb_midi, emb_audio, emb_anti_audio)
+        # backward
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
     return None
 
-def train_multimodal():
-    return None
-
-def test_multimodal():
-    return None
+def test_multimodal(model, midi_test_loader, audio_dataset, correspondance,
+                    criterion, writer, epoch):
+    """ Testing method for multimodal network.
+    Args :
+        - model (nn.Module) : model to train.
+        - midi_train_loader (DataLoader) : Loader of the MIDI training set.
+        - audio_dataset (Dataset) : Audio dataset.
+        - correspondance (Dict) : correspondance dictionnary between audio and midi datasets.
+        - criterion (nn.Module) : loss function.
+        - writer (Summarywriter) : for datalog.
+        - epoch (int) : training iteration number.
+    Output :
+        - test_loss (loss) : computed loss value.
+    """
+    model.eval()
+    test_loss = 0
+    with torch.no_grad():
+        for midi_snippet, label in midi_test_loader:
+            batch_idxs = torch.LongTensor(99).random(len(audio_dataset)) # TO BE CHANGED
+            
+            emb_midi, emb_audio = model(midi_snippet,
+                                        audio_dataset[correspondance[label]][0])
+            emb_anti_audio = [model.g(audio_dataset[idx][0]) 
+                                for idx in batch_idxs]
+            test_loss += criterion(emb_midi, emb_audio, emb_anti_audio)
+    
+    test_loss /= len(midi_test_loader.dataset)
+    writer.add_scalar('Test loss', test_loss, epoch)
+    
+    
+    return test_loss
 
 #%% Optimization definition
 num_epochs = 15
@@ -165,18 +220,28 @@ writer = SummaryWriter()
 
 for epoch in range(num_epochs):
     if MODE == 'MUMOMUSE':
-        # TO BE COMPLETED
-        #
-        #
-        #
-        #
-        #
-        pass
-    else:
-        train_AE(model, train_loader, optimizer, epoch)
+        train_multimodal(model,
+                midi_snippet_train_loader,
+                audio_dataset,
+                correspondance_dict,
+                optimizer,
+                epoch)
         print('epoch [{}], end of training.'.format(epoch+1))
-        test_AE(model, test_loader, writer, epoch)
-        print('epoch [{}], end of testing'.format(epoch+1))
+        
+        loss = test_multimodal(
+                model,
+                midi_snippet_test_loader,
+                audio_dataset,
+                correspondance_dict,
+                writer,
+                epoch)
+        print('epoch [{}], test loss:{:.4f}'.format(epoch+1, loss.data.item()))
+
+    else:
+        train_AE(model, train_loader, criterion, optimizer, epoch)
+        print('epoch [{}], end of training.'.format(epoch+1))
+        loss = test_AE(model, test_loader, criterion, writer, epoch)
+        print('epoch [{}], test loss:{:.4f}'.format(epoch+1, loss.data.item()))
 
 writer.close()    
 ##%% save model
