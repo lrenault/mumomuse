@@ -7,7 +7,15 @@ from torch.utils.data import DataLoader
 import datasets
 
 class AudioLoader():
-    '''Audio dataset loader'''
+    '''Audio dataset loader class
+        Instance variables :
+            - target_sr : Sample rate at which the audio should be resampled
+        Methods :
+            - loader : Loads the dataset comprised of the full length .wav files
+            - split : Splits a PIL image into smaller tensors
+            - splitData : Creates a set of tensors extracted from a set of PIL images
+            - audio_snippets_loader : Loads a set of spectrogram snippets 
+    '''
     target_sr = 22050
     
     def __init__(self):
@@ -49,7 +57,22 @@ class AudioLoader():
         loader = torch.utils.data.DataLoader(data, batch_size=1)
         return loader
     
-    def split(self, spectro, name, max_time = 42, export_dir = 'db/splitAudio/'):
+    def split(
+                self, 
+                spectro, 
+                name, 
+                max_time = 42, 
+                export_dir = 'db/splitAudio/'
+            ):
+        """
+        Splits a spectrogram (must be a PIL image) into tensors corresponding 
+        to audio snippets from the input. 
+        Args:
+            - spectro (PIL image) : spectrogram image to split.
+            - name (string) : name of the piece correspondong the input spectrogram PIL image
+            - max_time_bin (int) : maximum time bin for the exported spectrogram tensors.
+            - export_dir (string) : export folder path.
+        """
         length_sp = spectro.shape()[2]
         n_snips = length_sp // max_time
         for i in range(n_snips):
@@ -59,6 +82,13 @@ class AudioLoader():
         return None
     
     def splitData(self,root,max_time = 42,export_dir = 'db/splitAudio'):
+        """
+        Import a MIDI dataset, transform, split and exports its files into inputtable tensors.
+        Args:
+            - root (string) : folder containing raw wav files.
+            - max_time (int) : maximum time bin for exported spectrograms.
+            - export_dir (string) : export folder path.
+        """
         audio_loader = self.loader(root)
         for spectro, name in audio_loader:
             self.split(
@@ -71,7 +101,12 @@ class AudioLoader():
         return None
         
     def audio_snippets_loader(self, batch_size=1, root_dir='db/splitAudio'):
-        """ Audio snippets tensors loader """
+        """ 
+        Audio snippets tensors loader
+        Args :
+            - batch_size (int) : number of snippets that will be loaded
+            - root_dir (string) : dataset path
+        """
         dataset = datasets.Snippets(root_dir)
         loader  = DataLoader(dataset, batch_size=batch_size)
         return loader
