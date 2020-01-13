@@ -77,8 +77,7 @@ class AudioLoader():
         n_snips = length_sp // max_time
         for i in range(n_snips):
             CropSpectro = transforms.functional.crop(spectro,1,i*42,92,42)
-            cleanSnip = transforms.ToTensor(CropSpectro)
-            snip = self.addNoise(cleanSnip)
+            snip = transforms.ToTensor(CropSpectro)
             torch.save(snip, export_dir + name + '_' + str(i) + '.pt')    
         return None
     
@@ -110,27 +109,35 @@ class AudioLoader():
         """
         dataset = datasets.Snippets(root_dir)
         loader  = DataLoader(dataset, batch_size=batch_size)
-        return loader
+        addNoise(loader)
+        
     
-    def addNoise(self, augmented_proportion = 0.1, noise_level = 0.1, Snip):
+    def addNoise(self, 
+                 augmented_proportion = 0.1, 
+                 noise_level = 0.1, 
+                 loader
+                 ):
         """
         Adds noise to a certain proportion of the dataset
         Args :
             - augmented_proportion (float) = Proportion of snippets to add noise to
             - noise_level (float) = Level of noise to be added
-            - Snip (Tensor) = The snippet to add noise to
+            - dataset (torch.utils.data.Dataset) = The dataset to add noise to
         """
-        augment = np.random.random()
-        
-        if(augment < augmented_proportion):
-            npSnip = Snip.numpy()
-            noise = np.random.random(size = snipTensor.shape())
-            noiseSnipNP = npSnip + noise
-            noiseSnipTensor = torch.from_numpy(noiseSnipNP)
-        else:
-            noiseSnipTensor = Snip
+        for snip,name in loader:
             
-        return noiseSnipTensor
+            augment = np.random.random()
+            
+            if(augment < augmented_proportion):  
+                npSnip = snip.numpy()
+                noise = np.random.random(size = npSnip.shape())
+                noiseSnipNP = npSnip + noise
+                noiseSnipTensor = torch.from_numpy(noiseSnipNP)              
+            else:               
+                    noiseSnipTensor = snip
+                       
+            
+        return None
     
 class MIDILoader():
     '''MIDI file loader'''
