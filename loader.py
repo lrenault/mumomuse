@@ -132,9 +132,8 @@ class AudioLoader():
                 npSnip = snip.numpy()
                 noise = np.random.random(size = npSnip.shape())
                 noiseSnipNP = npSnip + noise
-                noiseSnipTensor = torch.from_numpy(noiseSnipNP)              
-            else:               
-                    noiseSnipTensor = snip
+                snip = torch.from_numpy(noiseSnipNP)              
+            
                        
             
         return None
