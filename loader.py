@@ -77,7 +77,8 @@ class AudioLoader():
         n_snips = length_sp // max_time
         for i in range(n_snips):
             CropSpectro = transforms.functional.crop(spectro,1,i*42,92,42)
-            snip = transforms.ToTensor(CropSpectro)
+            cleanSnip = transforms.ToTensor(CropSpectro)
+            snip = self.addNoise(cleanSnip)
             torch.save(snip, export_dir + name + '_' + str(i) + '.pt')    
         return None
     
@@ -110,6 +111,26 @@ class AudioLoader():
         dataset = datasets.Snippets(root_dir)
         loader  = DataLoader(dataset, batch_size=batch_size)
         return loader
+    
+    def addNoise(self, augmented_proportion = 0.1, noise_level = 0.1, Snip):
+        """
+        Adds noise to a certain proportion of the dataset
+        Args :
+            - augmented_proportion (float) = Proportion of snippets to add noise to
+            - noise_level (float) = Level of noise to be added
+            - Snip (Tensor) = The snippet to add noise to
+        """
+        augment = np.random.random()
+        
+        if(augment < augmented_proportion):
+            npSnip = Snip.numpy()
+            noise = np.random.random(size = snipTensor.shape())
+            noiseSnipNP = npSnip + noise
+            noiseSnipTensor = torch.from_numpy(noiseSnipNP)
+        else:
+            noiseSnipTensor = Snip
+            
+        return noiseSnipTensor
     
 class MIDILoader():
     '''MIDI file loader'''
