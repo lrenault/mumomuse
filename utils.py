@@ -26,7 +26,6 @@ def random_except(set_size, excepts, idxs_set_size=99, method=1):
         
     return idxs_set
     
-    
 
 def s(x, y):
     return nn.CosineSimilarity()(x, y)

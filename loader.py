@@ -126,15 +126,13 @@ class AudioLoader():
                 snip = torch.from_numpy(noiseSnipNP)              
   
         return None
-
-  
     
     
     
 class MIDILoader():
     '''MIDI file loader'''
     def __init__(self):
-        self.frame_rate = 21.54
+        self.frame_rate = 22.5
         self.preproc_stack = transforms.Compose([
                 lambda x: self.get_PianoRoll(x),
                 ])

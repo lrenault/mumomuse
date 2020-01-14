@@ -13,6 +13,11 @@ import utils
 dataset_reduced_to = 320 # for small dataset. None for no dataset reduction
 MODE = 'MUMOMUSE' # 'AUDIO_AE', 'MIDI_AE'
 
+# CUDA for Pytorch
+use_cuda = torch.cuda.is_available()
+device = torch.device("cuda:0" if use_cuda else "cpu")
+#cudnn.benchmark = True
+
 #%% Snippet Dataset construction 
 midi_dataset  = datasets.Snippets('db/splitMIDI')
 audio_dataset = datasets.Snippets('db/splitAUDIO')
@@ -90,6 +95,7 @@ def train_AE(model, train_loader, optimizer, criterion, epoch):
     """
     model.train()
     for data, label in train_loader:
+        data, label = data.to(device), label.to(device)
         # forward
         output = model(data)
         loss   = criterion(output, data)
@@ -118,6 +124,8 @@ def test_AE(model, test_loader, criterion, writer, epoch):
     test_loss = 0
     with torch.no_grad():
         for data, label in test_loader:
+            data, label = data.to(device), label.to(device)
+            # encode
             output = model(data)
             test_loss += criterion(output, data).data.item()
             
@@ -154,12 +162,12 @@ def train_multimodal(model, midi_train_loader, audio_dataset, correspondance,
         - epoch (int) : training iteration number.
     """
     model.train()
-    for midi_snippet, label in midi_train_loader:
+    for batch_midi_snippets, batch_labels in midi_train_loader:
         # batch generation
-        excepts = [correspondance_dict[name] for name in label]
+        excepts = [correspondance_dict[label] for label in batch_labels]
         batch_idxs = utils.random_except(len(audio_dataset), excepts, 99)
         # forward
-        emb_midi, emb_audio = model(midi_snippet,
+        emb_midi, emb_audio = model(batch_midi_snippets,
                                     audio_dataset[correspondance[label]][0])
         emb_anti_audio = [model.g(audio_dataset[idx][0]) for idx in batch_idxs]
         loss = criterion(emb_midi, emb_audio, emb_anti_audio)

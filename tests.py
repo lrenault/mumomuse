@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Dec 14 15:30:01 2019
-
-@author: lrenault
-"""
-#%%
 import numpy as np
 import torch
 import torch.nn as nn
@@ -18,15 +10,38 @@ import pretty_midi
 import loader
 import datasets
 import utils
-#%%
+
+audiopath = 'db/nottingham-dataset-master/AUDIO'
+MIDIpath = 'db/nottingham-dataset-master/MIDI'
+
 audio_loader = loader.AudioLoader()
 midi_loader = loader.MIDILoader()
 
-#MIDIpath = 'db/nottingham-dataset-master/MIDI'
-#midi_loader.split_and_export_dataset(MIDIpath)
-#midi_dataset = datasets.Snippets('db/splitMIDI')
+raw_audio_loader = audio_loader.loader(audiopath)
+raw_midi_loader  = midi_loader.loader(MIDIpath)
 
-audiopath = 'db/nottingham-dataset-master/AUDIO'
+music_names = raw_midi_loader.dataset.music_names
+idxs = list(range(len(raw_midi_loader.dataset)))
+
+correspondance_dict = dict(zip(music_names, idxs))
+
+k = 0
+for batch_audio, batch_music_name in raw_audio_loader:
+    midi, label = raw_midi_loader.dataset[correspondance_dict[batch_music_name[0]]]
+
+    audio_length = batch_audio.squeeze(0).size()[2]
+    midi_length = midi.size()[2]
+    
+    print(audio_length//42 - midi_length//42, audio_length, midi_length)
+    
+    if k == 100:
+        break
+    k += 1
+
+#%%
+midi_loader.split_and_export_dataset(MIDIpath)
+midi_dataset = datasets.Snippets('db/splitMIDI')
+
 audio_loader.split_and_export_dataset(audiopath)
 audio_dataset = datasets.Snippets('db/splitAUDIO')
 #%%
@@ -35,26 +50,7 @@ for truc, name in MIDIsnippet_loader:
     print(truc.size())
     break
 print(MIDIsnippet_loader.dataset[3][0].size())
-#%%
-AUDIOpath = 'db/nottingham-dataset-master/AUDIO'
-loader = audio_loader.get_YESNOdata()
 
-dataset = MIDIsnippet_loader.dataset
-music_names = dataset.labels
-idxs = list(range(len(dataset)))
-
-correspondance_dict = dict(zip(music_names, idxs))
-#%%
-k = 0
-for snippet, name in MIDIsnippet_loader:
-    #print(snippet.size(), '\n', name)
-    names = name
-    break
-
-#print(names)
-excepts = [correspondance_dict[name] for name in names]
-
-print(utils.random_except(4, [2], 10))
 #%%
 filename = 'db/nottingham-dataset-master/MIDI/reelsr-t64.mid'
 target_sr = 22050
@@ -77,17 +73,12 @@ for instrument in midi.instruments:
 
 data = torch.Tensor(data)
 print(data.size())
-#%%
-audio_loader = loader.AudioLoader()
-data_loader  = audio_loader.get_YESNOLoader()
 
 #%%
 filename = 'db/nottingham-dataset-master/AUDIO/ashover3.wav'
 # load audio
 waveform, origin_sr = torchaudio.load(filename)
-#waveform = torch.mean(waveform, dim=0, keepdim=True)
 waveform = waveform.mean(0).unsqueeze(0)
-#waveform = waveform[0,:].view(1,-1)
 print(waveform.size())
 #%%
 # take only first channel and 22.05kHz sampling rate
