@@ -22,9 +22,9 @@ class AudioLoader():
     def __init__(self):
         self.target_sr = 22050
         self.preproc = transforms.Compose([
-                #transforms.Lambda(lambda x: torch.mean(x, dim=0, keepdim=True)), #mono conversion
-                transforms.Lambda(lambda x: x.mean(0).unsqueeze(0)),
-                torchaudio.transforms.Resample(44100, self.target_sr),
+                lambda x: torchaudio.transforms.Resample(x[1],
+                                                         self.target_sr)(x[0]),
+                transforms.Lambda(lambda x: x.mean(0).unsqueeze(0)), # convert to mono
                 torchaudio.transforms.MelSpectrogram(
                     sample_rate=self.target_sr,
                     n_fft=2048,
@@ -62,24 +62,23 @@ class AudioLoader():
     def split_and_export(self, spectro, name, max_time=42, 
                          export_dir='db/splitAUDIO/'):
         """
-        Splits a spectrogram (must be a PIL image) into tensors corresponding 
-        to audio snippets from the input. 
+        Splits a spectrogram  into tensors corresponding to audio snippets from the input. 
         Args:
             - spectro (PIL image) : spectrogram image to split.
             - name (string) : name of the piece correspondong the input spectrogram PIL image.
             - max_time_bin (int) : maximum time bin for the exported spectrogram tensors.
             - export_dir (string) : export folder path.
         """
-        length_sp = spectro.shape()[2]
+        length_sp = spectro.size()[2]
         n_snips = length_sp // max_time
+        
         for i in range(n_snips):
-            CropSpectro = transforms.functional.crop(spectro,1,i*42,92,42)
-            snip = transforms.ToTensor(CropSpectro)
+            snip = spectro[:, :, i*max_time : (i + 1) * max_time]
             torch.save(snip, export_dir + name + '_' + str(i) + '.pt')    
         return None
     
     def split_and_export_dataset(self, root, max_time=42,
-                                 export_dir='db/splitAUDIO'):
+                                 export_dir='db/splitAUDIO/'):
         """
         Import an audio dataset, transform, split and exports its files into inputtable tensors.
         Args:
@@ -87,18 +86,15 @@ class AudioLoader():
             - max_time (int) : maximum time bin for exported spectrograms.
             - export_dir (string) : export folder path.
         """
-        audio_loader = self.loader(root)
+        audio_loader = self.loader(root, batch_size=1)
         for spectro, name in audio_loader:
-            self.split_and_export(
-                    spectro,
-                    name[0],
-                    max_time=max_time,
-                    export_dir=export_dir
-                    )
+            self.split_and_export(spectro.squeeze(0), name[0], 
+                                  max_time=max_time,
+                                  export_dir=export_dir)
             print(name, 'splitted and exported.')
         return None
         
-    def audio_snippets_loader(self, batch_size=1, root_dir='db/splitAUDIO'):
+    def audio_snippets_loader(self, batch_size=1, root_dir='db/splitAUDIO/'):
         """ 
         Audio snippets tensors loader
         Args :
@@ -131,13 +127,16 @@ class AudioLoader():
   
         return None
 
+  
+    
+    
     
 class MIDILoader():
     '''MIDI file loader'''
     def __init__(self):
         self.frame_rate = 21.54
         self.preproc_stack = transforms.Compose([
-                lambda x: self.get_PianoRoll(x)
+                lambda x: self.get_PianoRoll(x),
                 ])
         self.preproc_unstack = transforms.Compose([
                 lambda x: self.get_PianoRoll(x, stack=False)
@@ -155,7 +154,7 @@ class MIDILoader():
             if not instrument.is_drum:
                 instruRoll = instrument.get_piano_roll(fs=self.frame_rate)
                 instruLen = instruRoll.shape[1]
-                if nb_instru == 0:
+                if nb_instru == 0:              # init
                     if stack:
                         data = instruRoll
                         length = instruLen
@@ -163,14 +162,14 @@ class MIDILoader():
                         data = [instruRoll]
                 else :
                     if stack:
-                        if instruLen > length: # instrument score longer than whole track length
+                        if instruLen > length:  # instrument score longer than whole track length
                             data = pad(
                                     data,
                                     ((0, 0), (0, instruLen - length))
                                     )
                             length = instruLen
                             
-                        if instruLen < length: # instrument score shorter than whole track length
+                        if instruLen < length:  # instrument score shorter than whole track length
                             instruRoll = pad(
                                     instruRoll,
                                     ((0, 0), (0, length - instruLen))
@@ -179,7 +178,10 @@ class MIDILoader():
                     else:
                         data.append(instruRoll)
                 nb_instru += 1
+        # tensor conversion
         data = torch.Tensor(data)
+        if stack:
+            data = data.unsqueeze(0)            # add channel dimension
         return data
                 
     
@@ -191,13 +193,11 @@ class MIDILoader():
             - stackInstruments (bool): stack all instruments in 1 pianoroll or not
         """
         if stackInstruments:
-            dataset = datasets.MIDIDataset(
-                    root_dir,
-                    transform=self.preproc_stack)
+            dataset = datasets.MIDIDataset(root_dir,
+                                           transform=self.preproc_stack)
         else:
-            dataset = datasets.MIDIDataset(
-                    root_dir,
-                    transform=self.preproc_unstack)
+            dataset = datasets.MIDIDataset(root_dir,
+                                           transform=self.preproc_unstack)
             
         loader = DataLoader(dataset, batch_size=batch_size)
         return loader
@@ -232,12 +232,9 @@ class MIDILoader():
         """
         midi_loader = self.loader(root_dir, batch_size=1, stackInstruments=stackInstruments)
         for midi, music_name in midi_loader:
-            self.split_and_export(
-                    midi,
-                    music_name[0],
-                    max_time_bin=max_time_bin,
-                    export_dir=export_dir
-                    )
+            self.split_and_export(midi.squeeze(0), music_name[0], 
+                                  max_time_bin=max_time_bin,
+                                  export_dir=export_dir)
             print(music_name, 'splitted and exported.')
         return None
         

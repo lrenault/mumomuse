@@ -18,15 +18,26 @@ import pretty_midi
 import loader
 import datasets
 import utils
+#%%
+audio_loader = loader.AudioLoader()
+midi_loader = loader.MIDILoader()
 
-MIDIpath = 'db/nottingham-dataset-master/MIDI'
-midiLoader = loader.MIDILoader()
-audioLoader= loader.AudioLoader()
-rawMIDIloader = midiLoader.loader(MIDIpath, batch_size=1)
-MIDIsnippet_loader = midiLoader.midi_snippets_loader(batch_size=1, shuffle=True)
+#MIDIpath = 'db/nottingham-dataset-master/MIDI'
+#midi_loader.split_and_export_dataset(MIDIpath)
+#midi_dataset = datasets.Snippets('db/splitMIDI')
 
+audiopath = 'db/nottingham-dataset-master/AUDIO'
+audio_loader.split_and_export_dataset(audiopath)
+audio_dataset = datasets.Snippets('db/splitAUDIO')
+#%%
+MIDIsnippet_loader = midi_loader.midi_snippets_loader(batch_size=1, shuffle=True)
+for truc, name in MIDIsnippet_loader:
+    print(truc.size())
+    break
+print(MIDIsnippet_loader.dataset[3][0].size())
+#%%
 AUDIOpath = 'db/nottingham-dataset-master/AUDIO'
-loader = audioLoader.get_YESNOdata()
+loader = audio_loader.get_YESNOdata()
 
 dataset = MIDIsnippet_loader.dataset
 music_names = dataset.labels
