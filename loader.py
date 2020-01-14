@@ -8,6 +8,7 @@ from numpy import pad
 import numpy as np # TO BE DELETED
 
 import datasets
+import utils
 
 class AudioLoader():
     '''Audio dataset loader class
@@ -132,7 +133,7 @@ class AudioLoader():
 class MIDILoader():
     '''MIDI file loader'''
     def __init__(self):
-        self.frame_rate = 22.5
+        #self.frame_rate = 21.80
         self.preproc_stack = transforms.Compose([
                 lambda x: self.get_PianoRoll(x),
                 ])
@@ -148,9 +149,10 @@ class MIDILoader():
         """
         nb_instru = 0
         length = 0
+        fs = utils.sampling_period_from_length(midi.get_end_time())
         for instrument in midi.instruments:
             if not instrument.is_drum:
-                instruRoll = instrument.get_piano_roll(fs=self.frame_rate)
+                instruRoll = instrument.get_piano_roll(fs=fs)
                 instruLen = instruRoll.shape[1]
                 if nb_instru == 0:              # init
                     if stack:

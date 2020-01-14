@@ -1,6 +1,18 @@
 import torch
 import torch.nn as nn
 
+def sampling_period_from_length(end_time):
+    """Empirical affine function for giving an adapted sampling period given the music length.
+    Arg:
+        - end_time (float) : length of the pretty_midi file
+    Out:
+        - Ts (float) : sampling period for the piano roll.
+        """
+    a = (21.9 - 23.3) / 730
+    b = 23.3 - a * 750
+    Ts = a * end_time + b
+    return Ts
+
 def random_except(set_size, excepts, idxs_set_size=99, method=1):
     """Draw a set of random exclusive natural integers that aren't in the given exception set.
     Args :

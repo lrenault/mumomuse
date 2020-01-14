@@ -72,6 +72,7 @@ class MIDIDataset(Dataset):
         midi = PrettyMIDI(filename)
         
         if self.transform:
+            #print(midi.get_end_time()) # TO BE DELETED
             midi = self.transform(midi)
         
         return midi, label

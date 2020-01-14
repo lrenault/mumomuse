@@ -205,6 +205,9 @@ def test_multimodal(model, midi_test_loader, audio_dataset, correspondance,
                                 for idx in batch_idxs]
             # compute loss
             test_loss += criterion(emb_midi, emb_audio, emb_anti_audio)
+            
+            writer.add_embedding(emb_midi, tag='MIDI')
+            writer.add_embedding(emb_audio,tag='AUDIO')
     
     test_loss /= len(midi_test_loader.dataset)
     writer.add_scalar('Test loss', test_loss, epoch)
