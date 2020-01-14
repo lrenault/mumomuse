@@ -139,6 +139,8 @@ def test_AE(model, test_loader, criterion, writer, epoch):
     
     return test_loss
 
+
+
 def train_multimodal(model, midi_train_loader, audio_dataset, correspondance,
                      optimizer, criterion, epoch):
     """ Training method for multimodal network.
@@ -154,7 +156,8 @@ def train_multimodal(model, midi_train_loader, audio_dataset, correspondance,
     model.train()
     for midi_snippet, label in midi_train_loader:
         # batch generation
-        batch_idxs = torch.LongTensor(99).random(len(audio_dataset)) # TO BE CHANGED
+        excepts = [correspondance_dict[name] for name in label]
+        batch_idxs = utils.random_except(len(audio_dataset), excepts, 99)
         # forward
         emb_midi, emb_audio = model(midi_snippet,
                                     audio_dataset[correspondance[label]][0])
@@ -184,12 +187,15 @@ def test_multimodal(model, midi_test_loader, audio_dataset, correspondance,
     test_loss = 0
     with torch.no_grad():
         for midi_snippet, label in midi_test_loader:
-            batch_idxs = torch.LongTensor(99).random(len(audio_dataset)) # TO BE CHANGED
-            
+            # batch generation
+            excepts = [correspondance_dict[name] for name in label]
+            batch_idxs = utils.random_except(len(audio_dataset), excepts, 99)
+            # encode
             emb_midi, emb_audio = model(midi_snippet,
                                         audio_dataset[correspondance[label]][0])
             emb_anti_audio = [model.g(audio_dataset[idx][0]) 
                                 for idx in batch_idxs]
+            # compute loss
             test_loss += criterion(emb_midi, emb_audio, emb_anti_audio)
     
     test_loss /= len(midi_test_loader.dataset)

@@ -22,18 +22,27 @@ import utils
 MIDIpath = 'db/nottingham-dataset-master/MIDI'
 midiLoader = loader.MIDILoader()
 rawMIDIloader = midiLoader.loader(MIDIpath, batch_size=1)
-MIDIsnippet_loader = midiLoader.midi_snippets_loader(batch_size=10)
+MIDIsnippet_loader = midiLoader.midi_snippets_loader(batch_size=1, shuffle=True)
 
 AUDIOpath = 'db/nottingham-dataset-master/AUDIO'
 rawAUDIOset = datasets.AudioDataset(AUDIOpath)
+
+dataset = MIDIsnippet_loader.dataset
+music_names = dataset.labels
+idxs = list(range(len(dataset)))
+
+correspondance_dict = dict(zip(music_names, idxs))
 #%%
 k = 0
 for snippet, name in MIDIsnippet_loader:
-    print(snippet.size(), name)
-    k += 1
-    if k == 10:
-        break
+    #print(snippet.size(), '\n', name)
+    names = name
+    break
 
+#print(names)
+excepts = [correspondance_dict[name] for name in names]
+
+print(utils.random_except(4, [2], 10))
 #%%
 filename = 'db/nottingham-dataset-master/MIDI/reelsr-t64.mid'
 target_sr = 22050
@@ -59,16 +68,7 @@ print(data.size())
 #%%
 audio_loader = loader.AudioLoader()
 data_loader  = audio_loader.get_YESNOLoader()
-#%%
-i=0
-chose = 0
-for truc, label in data_loader:
-    i+=1
-    if i > 5:
-        chose = utils.s(truc, machin)
-        
-        break
-    machin = truc
+
 #%%
 filename = 'db/nottingham-dataset-master/AUDIO/ashover3.wav'
 # load audio

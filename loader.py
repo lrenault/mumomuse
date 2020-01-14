@@ -159,8 +159,8 @@ class MIDILoader():
             print(music_name, 'splitted and exported.')
         return None
         
-    def midi_snippets_loader(self, batch_size=1, root_dir='db/splitMIDI'):
+    def midi_snippets_loader(self, batch_size=1, shuffle=False, root_dir='db/splitMIDI'):
         """ MIDI snippets tensors loader """
         dataset = datasets.Snippets(root_dir)
-        loader  = DataLoader(dataset, batch_size=batch_size)
+        loader  = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
         return loader
