@@ -17,8 +17,8 @@ MODE = 'MUMOMUSE' # 'AUDIO_AE', 'MIDI_AE'
 midi_dataset  = datasets.Snippets('db/splitMIDI')
 audio_dataset = datasets.Snippets('db/splitAUDIO')
 
-midi_loader  = loader.MIDILoader
-audio_loader = loader.AudioLoader
+midi_loader  = loader.MIDILoader()
+audio_loader = loader.AudioLoader()
 
 # generate snippets from raw data if snippet folder is empty
 if len(midi_dataset) == 0:
@@ -28,7 +28,7 @@ if len(midi_dataset) == 0:
 
 if len(audio_dataset) == 0:
     audiopath = 'db/nottingham-dataset-master/AUDIO'
-    #audio_loader.split_and_export_dataset(audiopath)
+    audio_loader.split_and_export_dataset(audiopath)
     audio_dataset = datasets.Snippets('db/splitAUDIO')
 
 #%% Train-test split

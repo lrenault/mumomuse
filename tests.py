@@ -21,11 +21,12 @@ import utils
 
 MIDIpath = 'db/nottingham-dataset-master/MIDI'
 midiLoader = loader.MIDILoader()
+audioLoader= loader.AudioLoader()
 rawMIDIloader = midiLoader.loader(MIDIpath, batch_size=1)
 MIDIsnippet_loader = midiLoader.midi_snippets_loader(batch_size=1, shuffle=True)
 
 AUDIOpath = 'db/nottingham-dataset-master/AUDIO'
-rawAUDIOset = datasets.AudioDataset(AUDIOpath)
+loader = audioLoader.get_YESNOdata()
 
 dataset = MIDIsnippet_loader.dataset
 music_names = dataset.labels
@@ -73,6 +74,11 @@ data_loader  = audio_loader.get_YESNOLoader()
 filename = 'db/nottingham-dataset-master/AUDIO/ashover3.wav'
 # load audio
 waveform, origin_sr = torchaudio.load(filename)
+#waveform = torch.mean(waveform, dim=0, keepdim=True)
+waveform = waveform.mean(0).unsqueeze(0)
+#waveform = waveform[0,:].view(1,-1)
+print(waveform.size())
+#%%
 # take only first channel and 22.05kHz sampling rate
 waveform = torchaudio.transforms.Resample(origin_sr,
                                           target_sr)(waveform[0,:].view(1,-1)) 

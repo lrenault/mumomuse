@@ -5,6 +5,8 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from numpy import pad
 
+import numpy as np # TO BE DELETED
+
 import datasets
 
 class AudioLoader():
@@ -17,12 +19,11 @@ class AudioLoader():
             - splitData : Creates a set of tensors extracted from a set of PIL images
             - audio_snippets_loader : Loads a set of spectrogram snippets 
     '''
-    target_sr = 22050
-
     def __init__(self):
         self.target_sr = 22050
         self.preproc = transforms.Compose([
-
+                #transforms.Lambda(lambda x: torch.mean(x, dim=0, keepdim=True)), #mono conversion
+                transforms.Lambda(lambda x: x.mean(0).unsqueeze(0)),
                 torchaudio.transforms.Resample(44100, self.target_sr),
                 torchaudio.transforms.MelSpectrogram(
                     sample_rate=self.target_sr,
@@ -40,7 +41,7 @@ class AudioLoader():
             - root_dir (torch.utils.data.Dataset): audio dataset path.
             - batch_size (int) : loading batch size.
         """
-        dataset = datasets.audioDataset(root_dir, transform=self.preproc)      
+        dataset = datasets.AudioDataset(root_dir, transform=self.preproc)      
         loader = DataLoader(dataset, batch_size=batch_size)
         return loader
     
@@ -58,19 +59,14 @@ class AudioLoader():
         loader = DataLoader(data, batch_size=1)
         return loader
 
-    def split(
-                self, 
-                spectro, 
-                name, 
-                max_time = 42, 
-                export_dir = 'db/splitAudio/'
-            ):
+    def split_and_export(self, spectro, name, max_time=42, 
+                         export_dir='db/splitAUDIO/'):
         """
         Splits a spectrogram (must be a PIL image) into tensors corresponding 
         to audio snippets from the input. 
         Args:
             - spectro (PIL image) : spectrogram image to split.
-            - name (string) : name of the piece correspondong the input spectrogram PIL image
+            - name (string) : name of the piece correspondong the input spectrogram PIL image.
             - max_time_bin (int) : maximum time bin for the exported spectrogram tensors.
             - export_dir (string) : export folder path.
         """
@@ -82,9 +78,10 @@ class AudioLoader():
             torch.save(snip, export_dir + name + '_' + str(i) + '.pt')    
         return None
     
-    def splitData(self,root,max_time = 42,export_dir = 'db/splitAudio'):
+    def split_and_export_dataset(self, root, max_time=42,
+                                 export_dir='db/splitAUDIO'):
         """
-        Import a MIDI dataset, transform, split and exports its files into inputtable tensors.
+        Import an audio dataset, transform, split and exports its files into inputtable tensors.
         Args:
             - root (string) : folder containing raw wav files.
             - max_time (int) : maximum time bin for exported spectrograms.
@@ -92,7 +89,7 @@ class AudioLoader():
         """
         audio_loader = self.loader(root)
         for spectro, name in audio_loader:
-            self.split(
+            self.split_and_export(
                     spectro,
                     name[0],
                     max_time=max_time,
@@ -101,7 +98,7 @@ class AudioLoader():
             print(name, 'splitted and exported.')
         return None
         
-    def audio_snippets_loader(self, batch_size=1, root_dir='db/splitAudio'):
+    def audio_snippets_loader(self, batch_size=1, root_dir='db/splitAUDIO'):
         """ 
         Audio snippets tensors loader
         Args :
@@ -110,33 +107,28 @@ class AudioLoader():
         """
         dataset = datasets.Snippets(root_dir)
         loader  = DataLoader(dataset, batch_size=batch_size)
-        addNoise(loader)
+        #self.addNoise(loader)
+        return loader
         
     
-    def addNoise(self, 
-                 augmented_proportion = 0.1, 
-                 noise_level = 0.1, 
-                 loader
-                 ):
+    def addNoise(self, loader, augmented_proportion=0.1, noise_level=0.1):
         """
-        Adds noise to a certain proportion of the dataset
+        Adds noise to a certain proportion of the dataset.
         Args :
-            - augmented_proportion (float) = Proportion of snippets to add noise to
-            - noise_level (float) = Level of noise to be added
-            - dataset (torch.utils.data.Dataset) = The dataset to add noise to
+            - augmented_proportion (float) = Proportion of snippets to add noise to.
+            - noise_level (float) = Level of noise to be added.
+            - loader (torch.utils.data.DataLoader) = Loader of the dataset to add noise to.
         """
         for snip,name in loader:
             
-            augment = np.random.random()
+            augment = np.random.random() # use torch.random instead
             
             if(augment < augmented_proportion):  
                 npSnip = snip.numpy()
                 noise = np.random.random(size = npSnip.shape())
                 noiseSnipNP = npSnip + noise
                 snip = torch.from_numpy(noiseSnipNP)              
-            
-                       
-            
+  
         return None
 
     
@@ -210,13 +202,9 @@ class MIDILoader():
         loader = DataLoader(dataset, batch_size=batch_size)
         return loader
     
-    def split_and_export(
-            self,
-            midi,
-            music_name,
-            max_time_bin=42,
-            export_dir='db/splitMIDI/'
-            ):
+    def split_and_export(self, midi,
+                         music_name, max_time_bin=42,
+                         export_dir='db/splitMIDI/'):
         """
         Args:
             - midi (tensor) : midi tensor to split.
@@ -232,13 +220,8 @@ class MIDILoader():
             torch.save(snippet, export_dir + music_name + '_' + str(i) + '.pt')   
         return None
     
-    def split_and_export_dataset(
-            self,
-            root_dir,
-            stackInstruments=True,
-            max_time_bin=42,
-            export_dir='db/splitMIDI/'
-            ):
+    def split_and_export_dataset(self, root_dir, stackInstruments=True,
+                                 max_time_bin=42, export_dir='db/splitMIDI/'):
         """
         Import a MIDI dataset, transform, split and exports its files into inputtable tensors.
         Args:
