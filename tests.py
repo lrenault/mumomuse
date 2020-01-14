@@ -17,22 +17,32 @@ import pretty_midi
 
 import loader
 import datasets
+import utils
 
 MIDIpath = 'db/nottingham-dataset-master/MIDI'
 midiLoader = loader.MIDILoader()
 rawMIDIloader = midiLoader.loader(MIDIpath, batch_size=1)
-MIDIsnippet_loader = midiLoader.midi_snippets_loader(batch_size=10)
+MIDIsnippet_loader = midiLoader.midi_snippets_loader(batch_size=1, shuffle=True)
 
 AUDIOpath = 'db/nottingham-dataset-master/AUDIO'
 rawAUDIOset = datasets.AudioDataset(AUDIOpath)
+
+dataset = MIDIsnippet_loader.dataset
+music_names = dataset.labels
+idxs = list(range(len(dataset)))
+
+correspondance_dict = dict(zip(music_names, idxs))
 #%%
 k = 0
 for snippet, name in MIDIsnippet_loader:
-    print(snippet.size(), name)
-    k += 1
-    if k == 10:
-        break
+    #print(snippet.size(), '\n', name)
+    names = name
+    break
 
+#print(names)
+excepts = [correspondance_dict[name] for name in names]
+
+print(utils.random_except(4, [2], 10))
 #%%
 filename = 'db/nottingham-dataset-master/MIDI/reelsr-t64.mid'
 target_sr = 22050
@@ -58,29 +68,14 @@ print(data.size())
 #%%
 audio_loader = loader.AudioLoader()
 data_loader  = audio_loader.get_YESNOLoader()
-#%%
-i=0
-for truc, label in data_loader:
-    print(truc.size())
-    i+=1
-    if i > 5:
-        print(truc.size())
-        test = nn.MaxPool2d(2)(truc)
-        print(test.size())
-        test2= nn.ConvTranspose2d(1, 1, kernel_size=3, stride=2, padding=3, output_padding=0)(test)
-        print(test2.size())
-        break
 
 #%%
-
+filename = 'db/nottingham-dataset-master/AUDIO/ashover3.wav'
 # load audio
 waveform, origin_sr = torchaudio.load(filename)
 # take only first channel and 22.05kHz sampling rate
 waveform = torchaudio.transforms.Resample(origin_sr,
                                           target_sr)(waveform[0,:].view(1,-1)) 
-
-plt.plot(waveform.t().numpy())
-plt.show()
 
 specgram = torchaudio.transforms.MelSpectrogram(sample_rate=target_sr,
                                                 n_fft=2048,
