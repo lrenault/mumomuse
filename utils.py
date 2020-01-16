@@ -15,6 +15,18 @@ def sampling_period_from_length(end_time):
     Ts = a * log(end_time) + b
     return Ts
 
+def previous_label(label):
+    """ Give previous snippet label of the given snippet label.
+    Arg:
+        - label (string): current snippet label.
+    Out:
+        - previous (string): label of the previous label.
+    """
+    root, snip_idx = label.split('_')
+    prev_snip_idxs = str(int(snip_idx) - 1)
+    previous = root + '_' + prev_snip_idxs
+    return previous
+
 def random_except(set_size, excepts, idxs_set_size=99, method=1):
     """Draw a set of random exclusive natural integers that aren't in the given exception set.
     Args :

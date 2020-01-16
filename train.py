@@ -61,7 +61,7 @@ midi_test_set, midi_valid_set = torch.utils.data.random_split(
 
 midi_snippet_train_loader = DataLoader(midi_train_set, num_workers=3)
 midi_snippet_test_loader  = DataLoader(midi_test_set)
-midi_snippet_valid_loader = DataLoader(midi_valid_set)
+midi_snippet_valid_loader = DataLoader(midi_valid_set, num_workers=2)
 
 #%% Correspondance with audio dataset
 music_names = audio_dataset.labels
@@ -69,6 +69,23 @@ idxs = list(range(len(audio_dataset)))
 
 correspondance_dict = dict(zip(music_names, idxs))
 
+# find midi snippets which don't have audio counterpart and assign the previous audio snippet.
+for loader_ in [midi_snippet_train_loader, midi_snippet_test_loader,
+                midi_snippet_valid_loader]:
+    for batch_midi_snip, batch_labels in loader_:
+        for label in batch_labels:
+            try:
+                prout = correspondance_dict[label]
+            except KeyError:
+                print("Non-correpondance found")
+                previous_label = utils.previous_label(label)
+                idxs.append(correspondance_dict[previous_label])
+                music_names.append(label)
+
+correspondance_dict = dict(zip(music_names, idxs))
+print("Finished correspondance dictionnary construction.")
+
+#%% rename loaders for different Modes
 if MODE == 'MUMOMUSE':
     pass
 
@@ -81,10 +98,10 @@ else: #'AUDIO_AE'
     test_indices  = []
     
     for snippet, label in midi_snippet_train_loader:
-        train_indices.append(correspondance_dict(label))
+        train_indices.append(correspondance_dict[label])
     
     for snippet, label in midi_snippet_test_loader:
-        test_indices.append(correspondance_dict(label))
+        test_indices.append(correspondance_dict[label])
         
     train_sampler = SubsetRandomSampler(train_indices)
     test_sampler  = SubsetRandomSampler(test_indices)
@@ -171,6 +188,7 @@ def train_multimodal(model, midi_train_loader, audio_dataset, correspondance,
         - epoch (int) : training iteration number.
     """
     model.train()
+    k = 0
     for batch_midi_snippets, batch_labels in midi_train_loader:
         # batch generation
         excepts = [correspondance_dict[label] for label in batch_labels]
@@ -188,6 +206,10 @@ def train_multimodal(model, midi_train_loader, audio_dataset, correspondance,
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        
+        k += 1
+        if k%5 == 0:
+            print("Trained with", k, "snippets.")
     return None
 
 def test_multimodal(model, midi_test_loader, audio_dataset, correspondance,
@@ -230,7 +252,7 @@ def test_multimodal(model, midi_test_loader, audio_dataset, correspondance,
     return test_loss
 
 #%% Optimization definition
-num_epochs = 50
+num_epochs = 20
 learning_rate = 2e-3
 
 if MODE == 'MUMOMUSE':
