@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.nn.functional import normalize
 from numpy import log
 
 def sampling_period_from_length(end_time):
@@ -41,7 +42,7 @@ def random_except(set_size, excepts, idxs_set_size=99, method=1):
     
 
 def s(x, y):
-    return nn.CosineSimilarity()(x, y)
+    return nn.CosineSimilarity()(normalize(x), normalize(y))
 
 class pairwise_ranking_objective(nn.Module):
     """Hinge loss"""

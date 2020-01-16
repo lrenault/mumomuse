@@ -182,7 +182,7 @@ def train_multimodal(model, midi_train_loader, audio_dataset, correspondance,
                 )
         emb_anti_audios = [model.g(audio_dataset[idx][0].unsqueeze(0))
                             for idx in batch_idxs]
-        print(emb_midi.size(), emb_audio.size(), emb_anti_audios[5].size())
+        # compute loss
         loss = criterion(emb_midi, emb_audio, emb_anti_audios)
         # backward
         optimizer.zero_grad()
@@ -251,6 +251,7 @@ writer = SummaryWriter()
 
 for epoch in range(num_epochs):
     if MODE == 'MUMOMUSE':
+        print('epoch [{}], training...'.format(epoch+1))
         train_multimodal(model, midi_snippet_train_loader, audio_dataset,
                          correspondance_dict,
                          optimizer, criterion, epoch)
@@ -262,6 +263,7 @@ for epoch in range(num_epochs):
         print('epoch [{}], test loss:{:.4f}'.format(epoch+1, loss.data.item()))
 
     else:
+        print('epoch [{}], training...'.format(epoch+1))
         train_AE(model, train_loader, criterion, optimizer, epoch)
         print('epoch [{}], end of training.'.format(epoch+1))
         loss = test_AE(model, test_loader, criterion, writer, epoch)
