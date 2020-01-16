@@ -27,6 +27,7 @@ correspondance_dict = dict(zip(music_names, idxs))
 
 x = []
 y = []
+y2= []
 
 k = 0
 for batch_audio, batch_music_name in raw_audio_loader:
@@ -35,22 +36,39 @@ for batch_audio, batch_music_name in raw_audio_loader:
     audio_length = batch_audio.squeeze(0).size()[2]
     midi_length = midi.size()[2]
     
-    print(audio_length//42 - midi_length//42, audio_length, midi_length)
+    print(midi_length//42 - audio_length//42, audio_length, midi_length)
     
     x.append(audio_length)
     y.append(midi_length - audio_length)
+    y2.append(midi_length//42 - audio_length//42)
     
     if k == 100:
         break
     k += 1
 #%%
-error = np.argmax(y)
+error = np.argmax(x)
 del x[error]
 del y[error]
+del y2[error]
 #%%
 plt.figure(figsize=(10, 10))
 plt.plot(x, y, 'o')
 plt.plot(x, np.zeros(len(x)), color='r')
+plt.xlabel('Audio length [time bin]')
+plt.ylabel('(Pianoroll length) - (Audio length) [time bin]')
+plt.title('Alignment Error (with adaptative sampling period)')
+plt.savefig('alignment_error_adaptative.png')
+plt.show()
+#%%
+plt.figure(figsize=(10,10))
+plt.plot(x, np.zeros(len(x)), color='r')
+plt.plot(x, y2, 'o')
+plt.show()
+#%%
+plt.figure(figsize=(10, 10))
+t_v = np.arange(770)
+y_v = [utils.sampling_period_from_length(t) for t in t_v]
+plt.plot(t_v, y_v)
 plt.show()
 #%%
 plt.figure(figsize=(10, 10))
@@ -68,7 +86,7 @@ plt.show()
 #%%
 midi_loader.split_and_export_dataset(MIDIpath)
 midi_dataset = datasets.Snippets('db/splitMIDI')
-
+#%%
 audio_loader.split_and_export_dataset(audiopath)
 audio_dataset = datasets.Snippets('db/splitAUDIO')
 #%%

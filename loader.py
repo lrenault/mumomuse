@@ -88,11 +88,12 @@ class AudioLoader():
             - export_dir (string) : export folder path.
         """
         audio_loader = self.loader(root, batch_size=1)
+        print("Splitting Audio dataset...")
         for spectro, name in audio_loader:
-            self.split_and_export(spectro.squeeze(0), name[0], 
+            self.split_and_export(spectro.squeeze(0), name[0],
                                   max_time=max_time,
                                   export_dir=export_dir)
-            print(name, 'splitted and exported.')
+        print('Audio dataset splitted and exported.')
         return None
         
     def audio_snippets_loader(self, batch_size=1, root_dir='db/splitAUDIO/'):
@@ -231,11 +232,13 @@ class MIDILoader():
             - export_dir (string) : export folder path.
         """
         midi_loader = self.loader(root_dir, batch_size=1, stackInstruments=stackInstruments)
+        print("Splitting MIDI dataset...")
+        
         for midi, music_name in midi_loader:
             self.split_and_export(midi.squeeze(0), music_name[0], 
                                   max_time_bin=max_time_bin,
-                                  export_dir=export_dir)
-            print(music_name, 'splitted and exported.')
+                                  export_dir=export_dir)        
+        print("MIDI dataset splitted and exported.")
         return None
         
     def midi_snippets_loader(self, batch_size=1, shuffle=False, root_dir='db/splitMIDI'):

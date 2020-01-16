@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from numpy import log
 
 def sampling_period_from_length(end_time):
     """Empirical affine function for giving an adapted sampling period given the music length.
@@ -8,9 +9,9 @@ def sampling_period_from_length(end_time):
     Out:
         - Ts (float) : sampling period for the piano roll.
         """
-    a = (21.9 - 23.3) / 730
-    b = 23.3 - a * 750
-    Ts = a * end_time + b
+    a = (21.9 - 23.3) / (log(150) - log(20))
+    b = 23.3 - a * log(20)
+    Ts = a * log(end_time) + b
     return Ts
 
 def random_except(set_size, excepts, idxs_set_size=99, method=1):

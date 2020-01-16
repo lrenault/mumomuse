@@ -36,7 +36,7 @@ if len(audio_dataset) == 0:
     audio_loader.split_and_export_dataset(audiopath)
     audio_dataset = datasets.Snippets('db/splitAUDIO')
 
-#%% Train-test split
+#%% Train-test-validation split
 set_size = len(midi_dataset)
 
 if dataset_reduced_to:
@@ -45,14 +45,23 @@ if dataset_reduced_to:
             [dataset_reduced_to, set_size - dataset_reduced_to])
     set_size = dataset_reduced_to
 
-train_size = int(set_size * 0.75)
 
-midi_train_set, midi_test_set = torch.utils.data.random_split(
+train_size = int(set_size * 0.75)
+non_train_size = set_size - train_size
+midi_train_set, midi_non_training_set = torch.utils.data.random_split(
         midi_dataset,
-        [train_size, set_size - train_size])
+        [train_size, non_train_size])
+
+
+test_size = int(non_train_size * 0.25)
+midi_test_set, midi_valid_set = torch.utils.data.random_split(
+        midi_non_training_set,
+        [test_size, non_train_size - test_size])
+
 
 midi_snippet_train_loader = DataLoader(midi_train_set, num_workers=3)
 midi_snippet_test_loader  = DataLoader(midi_test_set)
+midi_snippet_valid_loader = DataLoader(midi_valid_set)
 
 #%% Correspondance with audio dataset
 music_names = audio_dataset.labels
