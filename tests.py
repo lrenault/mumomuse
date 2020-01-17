@@ -1,59 +1,122 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Dec 14 15:30:01 2019
-
-@author: lrenault
-"""
-#%%
+import numpy as np
 import torch
 import torch.nn as nn
 import torchaudio
 import torchaudio.transforms
 from torchvision import transforms
-from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
+import pretty_midi
 
 import loader
+import datasets
+import utils
 
-target_sr = 22050
-filename = 'db/test.wav'
+audiopath = 'db/nottingham-dataset-master/AUDIO'
+MIDIpath = 'db/nottingham-dataset-master/MIDI'
 
 audio_loader = loader.AudioLoader()
-data_loader  = audio_loader.getYESNOLoader()
+midi_loader = loader.MIDILoader()
 
+raw_audio_loader = audio_loader.loader(audiopath)
+raw_midi_loader  = midi_loader.loader(MIDIpath)
 
+music_names = raw_midi_loader.dataset.music_names
+idxs = list(range(len(raw_midi_loader.dataset)))
+
+correspondance_dict = dict(zip(music_names, idxs))
 #%%
-i=0
-for truc, label in data_loader:
-    print(truc.size())
-    i+=1
-    if i > 5:
-        print(truc.size())
-        test = nn.MaxPool2d(2)(truc)
-        print(test.size())
-        test2= nn.ConvTranspose2d(1, 1, kernel_size=3, stride=2, padding=3, output_padding=0)(test)
-        print(test2.size())
+x = []
+y = []
+y2= []
+
+k = 0
+for batch_audio, batch_music_name in raw_audio_loader:
+    midi, label = raw_midi_loader.dataset[correspondance_dict[batch_music_name[0]]]
+
+    audio_length = batch_audio.squeeze(0).size()[2]
+    midi_length = midi.size()[2]
+    
+    print(midi_length//42 - audio_length//42, audio_length, midi_length)
+    
+    x.append(audio_length)
+    y.append(midi_length - audio_length)
+    y2.append(midi_length//42 - audio_length//42)
+    
+    if k == 100:
         break
+    k += 1
+#%%
+error = np.argmax(x)
+del x[error]
+del y[error]
+del y2[error]
+#%%
+plt.figure(figsize=(10, 10))
+plt.plot(x, y, 'o')
+plt.plot(x, np.zeros(len(x)), color='r')
+plt.xlabel('Audio length [time bin]')
+plt.ylabel('(Pianoroll length) - (Audio length) [time bin]')
+plt.title('Alignment Error (with adaptative sampling period)')
+plt.savefig('alignment_error_adaptative.png')
+plt.show()
+#%%
+plt.figure(figsize=(10,10))
+plt.plot(x, np.zeros(len(x)), color='r')
+plt.plot(x, y2, 'o')
+plt.show()
+#%%
+plt.figure(figsize=(10, 10))
+t_v = np.arange(770)
+y_v = [utils.sampling_period_from_length(t) for t in t_v]
+plt.plot(t_v, y_v)
+plt.show()
+#%%
+midi_dataset = datasets.Snippets('db/splitMIDI')
+audio_dataset = datasets.Snippets('db/splitAUDIO')
+
+pairs_dataset = datasets.PairSnippets(midi_dataset, audio_dataset)
+
+pairs_loader = torch.utils.data.DataLoader(pairs_dataset, batch_size=10)
 
 #%%
+for midi, audio, label in pairs_loader:
+    print(midi.size(), audio.size(), label)
+    break
 
+#%%
+midi_loader.split_and_export_dataset(MIDIpath)
+midi_dataset = datasets.Snippets('db/splitMIDI')
+#%%
+audio_loader.split_and_export_dataset(audiopath)
+audio_dataset = datasets.Snippets('db/splitAUDIO')
+#%%
+MIDIsnippet_loader = midi_loader.midi_snippets_loader(batch_size=1, shuffle=True)
+for truc, name in MIDIsnippet_loader:
+    print(truc.size())
+    break
+print(MIDIsnippet_loader.dataset[3][0].size())
+#%%
+midi_test = 'db/nottingham-dataset-master/MIDI/ashover10.mid'
+midi = pretty_midi.PrettyMIDI(midi_test)
+print(midi.get_end_time())
+
+#%%
+filename = 'db/nottingham-dataset-master/AUDIO/ashover3.wav'
 # load audio
 waveform, origin_sr = torchaudio.load(filename)
+waveform = waveform.mean(0).unsqueeze(0)
+print(waveform.size())
 # take only first channel and 22.05kHz sampling rate
 waveform = torchaudio.transforms.Resample(origin_sr,
-                                          target_sr)(waveform[0,:].view(1,-1)) 
+                                          22500)(waveform[0]) 
 
-plt.plot(waveform.t().numpy())
-plt.show()
-
-specgram = torchaudio.transforms.MelSpectrogram(sample_rate=target_sr,
-                                                n_fft=len(waveform.t().numpy()),
+specgram = torchaudio.transforms.MelSpectrogram(sample_rate=22500,
+                                                n_fft=2048,
                                                 win_length=2048,
                                                 f_min=30.0,
                                                 f_max=6000.0,
                                                 n_mels=92)(waveform)
-
+print("specgram finished")
 data_m = specgram[:,:,:42]
 print("Shape of spectrogram: {}".format(specgram.size()))
 
