@@ -80,9 +80,9 @@ def train_AE(model, train_loader, optimizer, criterion, epoch):
     k = 0
     for midi, audio, label in train_loader:
         if MODE == 'MIDI_AE':
-            data, label = midi.to(device), label.to(device)
+            data = midi.to(device)
         else:
-            data, label = audio.to(device), label.to(device)
+            data = audio.to(device)
         # forward
         output = model(data)
         loss   = criterion(output, data)
@@ -114,9 +114,9 @@ def test_AE(model, test_loader, criterion, writer, epoch):
     with torch.no_grad():
         for midi, audio, label in test_loader:
             if MODE == 'MIDI_AE':
-                data, label = midi.to(device), label.to(device)
+                data = midi.to(device)
             else:
-                data, label = audio.to(device), label.to(device)
+                data = audio.to(device)
             # encode
             output = model(data)
             test_loss += criterion(output, data).data.item()
@@ -162,7 +162,6 @@ def train_multimodal(model, train_loader, optimizer, criterion, epoch):
             # to device
             batch_midi   = batch_midi.to(device)
             batch_audio  = batch_audio.to(device)
-            batch_labels = batch_labels.to(device)            
             
             # forward
             emb_midi, emb_audio = model(batch_midi, batch_audio)
@@ -208,15 +207,15 @@ def test_multimodal(model, test_loader, criterion, epoch, writer):
         audio_metadata = ['None']
         for batch_midi, batch_audio, batch_labels in test_loader:
             try:
+                print(batch_midi.size(), batch_audio.size(), batch_labels)
                 # batch generation
                 excepts = batch_labels
                 #batch_idxs = utils.random_except(len(test_loader.dataset), excepts, 99)
-                batch_idxs = torch.LongTensor(99).random_(len(train_loader.dataset))
+                batch_idxs = torch.LongTensor(99).random_(len(test_loader.dataset))
                 
                 # to device
                 batch_midi   = batch_midi.to(device)
                 batch_audio  = batch_audio.to(device)
-                batch_labels = batch_labels.to(device)
                 
                 # encode
                 emb_midi, emb_audio = model(batch_midi, batch_audio)
@@ -273,7 +272,7 @@ writer = SummaryWriter()
 for epoch in range(num_epochs):
     if MODE == 'MUMOMUSE':
         print('epoch [{}], training...'.format(epoch+1))
-        train_multimodal(model, train_loader, optimizer, criterion, epoch)
+        #train_multimodal(model, train_loader, optimizer, criterion, epoch)
         print('epoch [{}], end of training.'.format(epoch+1))
         
         loss = test_multimodal(model, test_loader, criterion, epoch, writer)
