@@ -249,6 +249,8 @@ class MIDILoader():
         loader  = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
         return loader
 
+
+
 def get_dictionnary(midi_dataset, audio_dataset):
     """Construct the dictionnary retrieving an audio snippets from its label.
     Args:

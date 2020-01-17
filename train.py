@@ -174,7 +174,10 @@ def train_multimodal(model, midi_train_loader, audio_dataset, correspondance,
         try:
             # batch generation
             excepts = [correspondance_dict[label] for label in batch_labels]
-            batch_idxs = utils.random_except(len(audio_dataset), excepts, 99)
+            batch_idxs = utils.random_except(
+                    len(audio_dataset),
+                    excepts,
+                    99)
             # forward
             emb_midi, emb_audio = model(
                     batch_midi_snippets,

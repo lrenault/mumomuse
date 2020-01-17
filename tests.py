@@ -71,17 +71,17 @@ y_v = [utils.sampling_period_from_length(t) for t in t_v]
 plt.plot(t_v, y_v)
 plt.show()
 #%%
-plt.figure(figsize=(10, 10))
-plt.plot(x21, y21, 'o', label='Ts=21.43 ms')
-plt.plot(x22, y22, 'o', label='Ts=22.43 ms')
-plt.plot(x23, y23, 'o', label='Ts=23.43 ms')
-plt.plot(x21, np.zeros(len(x21)), color='r')
-plt.title('Alignment Error (with fixed sampling period Ts)')
-plt.xlabel('Audio length')
-plt.ylabel('Pianoroll length - Audio length')
-plt.legend()
-plt.savefig('alignement_error_fixed.png')
-plt.show()
+midi_dataset = datasets.Snippets('db/splitMIDI')
+audio_dataset = datasets.Snippets('db/splitAUDIO')
+
+pairs_dataset = datasets.PairSnippets(midi_dataset, audio_dataset)
+
+pairs_loader = torch.utils.data.DataLoader(pairs_dataset, batch_size=10)
+
+#%%
+for midi, audio, label in pairs_loader:
+    print(midi.size(), audio.size(), label)
+    break
 
 #%%
 midi_loader.split_and_export_dataset(MIDIpath)
