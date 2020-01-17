@@ -147,6 +147,8 @@ class MIDILoader():
         Args:
             - midi (pretty_midi) : midi data.
             - stack (bool) : if True, stack all insturment into 1 piano roll.
+        Out:
+            data (C, 128, L_audio) : piano roll of the midi file.
         """
         nb_instru = 0
         length = 0

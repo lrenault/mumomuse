@@ -217,6 +217,10 @@ def test_multimodal(model, midi_test_loader, audio_dataset, correspondance,
     model.eval()
     test_loss = 0
     with torch.no_grad():
+        midi_mat = torch.zeros(1,32)
+        audio_mat = torch.zeros(1,32)
+        midi_metadata = ['None']
+        audio_metadata = ['None']
         for midi_snippet, label in midi_test_loader:
             try:
                 # batch generation
@@ -232,13 +236,24 @@ def test_multimodal(model, midi_test_loader, audio_dataset, correspondance,
                 # compute loss
                 test_loss += criterion(emb_midi, emb_audio, emb_anti_audio)
                 
-                writer.add_embedding(emb_midi, tag='MIDI')
-                writer.add_embedding(emb_audio,tag='AUDIO')
+                # add to metadata
+                midi_mat = torch.cat((midi_mat, emb_midi), 0)
+                audio_mat = torch.cat((audio_mat, emb_audio), 0)
+                
+                midi_metadata.append(label[0] + '_midi')
+                audio_metadata.append(label[0] + '_audio')
             
             except FileNotFoundError:
+                print('FileNotFoundError')
                 pass
             except KeyError:
+                print('KeyError')
                 pass
+        
+        mat = torch.cat((midi_mat, audio_mat), 0)
+        metadata = midi_metadata + audio_metadata
+        
+        writer.add_embedding(mat, metadata=metadata, global_step=epoch)
             
     test_loss /= len(midi_test_loader.dataset)
     writer.add_scalar('Test loss', test_loss, epoch)
@@ -293,3 +308,10 @@ elif MODE == 'MIDI_AE':
     torch.save(model.state_dict(), './models/midi_AE2.pth')
 else: # 'AUDIO_AE'
     torch.save(model.state_dict(), './models/audio_AE3.pth')
+    
+#%% Validation
+writer = SummaryWriter()
+loss = test_multimodal(model, midi_snippet_valid_loader,
+                       audio_dataset, correspondance_dict,
+                       criterion, 0, writer)
+writer.close()

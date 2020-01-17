@@ -24,7 +24,7 @@ music_names = raw_midi_loader.dataset.music_names
 idxs = list(range(len(raw_midi_loader.dataset)))
 
 correspondance_dict = dict(zip(music_names, idxs))
-
+#%%
 x = []
 y = []
 y2= []
