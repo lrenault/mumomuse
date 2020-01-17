@@ -117,10 +117,10 @@ class PairSnippets(Dataset):
         midi_labels = midi_snippets_dataset.labels
         audio_labels = audio_snippets_dataset.labels
         
-        midi_idxs = list(range(len(midi_snippets_dataset)))
+        midi_idxs  = list(range(len(midi_snippets_dataset)))
         audio_idxs = list(range(len(audio_snippets_dataset)))
 
-        midi_dict = dict(zip(midi_labels, midi_idxs))
+        midi_dict  = dict(zip(midi_labels,  midi_idxs))
         audio_dict = dict(zip(audio_labels, audio_idxs))
         
         self.multimod_idxs = []
