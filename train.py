@@ -207,7 +207,6 @@ def test_multimodal(model, test_loader, criterion, epoch, writer):
         audio_metadata = ['None']
         for batch_midi, batch_audio, batch_labels in test_loader:
             try:
-                print(batch_midi.size(), batch_audio.size(), batch_labels)
                 # batch generation
                 excepts = batch_labels
                 #batch_idxs = utils.random_except(len(test_loader.dataset), excepts, 99)
@@ -272,18 +271,18 @@ writer = SummaryWriter()
 for epoch in range(num_epochs):
     if MODE == 'MUMOMUSE':
         print('epoch [{}], training...'.format(epoch+1))
-        #train_multimodal(model, train_loader, optimizer, criterion, epoch)
+        train_multimodal(model, train_loader, optimizer, criterion, epoch)
         print('epoch [{}], end of training.'.format(epoch+1))
         
         loss = test_multimodal(model, test_loader, criterion, epoch, writer)
-        print('epoch [{}], test loss:{:.4f}'.format(epoch+1, loss.data.item()))
+        print('epoch [{}], test loss: {:.4f}'.format(epoch+1, loss.data.item()))
 
     else:
         print('epoch [{}], training...'.format(epoch+1))
         train_AE(model, train_loader, criterion, optimizer, epoch)
         print('epoch [{}], end of training.'.format(epoch+1))
         loss = test_AE(model, test_loader, criterion, writer, epoch)
-        print('epoch [{}], test loss:{:.4f}'.format(epoch+1, loss.data.item()))
+        print('epoch [{}], test loss: {:.4f}'.format(epoch+1, loss.data.item()))
 
 writer.close()   
 #%% save model

@@ -132,9 +132,12 @@ class AudioLoader():
     
     
 class MIDILoader():
-    '''MIDI file loader'''
+    '''MIDI files loader class
+        Attributes :
+            - preproc_stack (transforms) : pre-processing transformations to stack instruments into 1 channel.
+            - preproc_unstack (transforms) : pre-processing transformations while keeping instruments into different channels.
+    '''
     def __init__(self):
-        #self.frame_rate = 21.80
         self.preproc_stack = transforms.Compose([
                 lambda x: self.get_PianoRoll(x),
                 ])
