@@ -246,3 +246,32 @@ class MIDILoader():
         dataset = datasets.Snippets(root_dir)
         loader  = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
         return loader
+
+def get_dictionnary(midi_dataset, audio_dataset):
+    """Construct the dictionnary retrieving an audio snippets from its label.
+    Args:
+        - audio_dataset (Dataset): audio snippet dataset.
+        - midi_dataset (Dataset): corresponding midi_dataset.
+    Out:
+        - correspondance_dict (dict): audio-midi matching dictionnary.
+    """
+    music_names = audio_dataset.labels
+    idxs = list(range(len(audio_dataset)))
+
+    correspondance_dict = dict(zip(music_names, idxs))
+    '''
+    midi_loader = DataLoader(midi_dataset, batch_size=10)
+    
+    for batch_midi_snip, batch_labels in midi_loader:
+        for label in batch_labels:
+            try:
+                prout = correspondance_dict[label]
+            except KeyError:
+                print("Non-correspondance found :", label)
+                previous_label = utils.previous_label(label)
+                idxs.append(correspondance_dict[previous_label])
+                music_names.append(label)
+    correspondance_dict = dict(zip(music_names, idxs))
+    '''
+    print("Finished correspondance dictionnary construction.")
+    return correspondance_dict

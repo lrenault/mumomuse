@@ -36,6 +36,9 @@ if len(audio_dataset) == 0:
     audio_loader.split_and_export_dataset(audiopath)
     audio_dataset = datasets.Snippets('db/splitAUDIO')
 
+#%% Correspondance with audio dataset
+correspondance_dict = loader.get_dictionnary(midi_dataset, audio_dataset)
+
 #%% Train-test-validation split
 set_size = len(midi_dataset)
 
@@ -62,28 +65,6 @@ midi_test_set, midi_valid_set = torch.utils.data.random_split(
 midi_snippet_train_loader = DataLoader(midi_train_set, num_workers=3)
 midi_snippet_test_loader  = DataLoader(midi_test_set)
 midi_snippet_valid_loader = DataLoader(midi_valid_set, num_workers=2)
-
-#%% Correspondance with audio dataset
-music_names = audio_dataset.labels
-idxs = list(range(len(audio_dataset)))
-
-correspondance_dict = dict(zip(music_names, idxs))
-
-# find midi snippets which don't have audio counterpart and assign the previous audio snippet.
-for loader_ in [midi_snippet_train_loader, midi_snippet_test_loader,
-                midi_snippet_valid_loader]:
-    for batch_midi_snip, batch_labels in loader_:
-        for label in batch_labels:
-            try:
-                prout = correspondance_dict[label]
-            except KeyError:
-                print("Non-correpondance found")
-                previous_label = utils.previous_label(label)
-                idxs.append(correspondance_dict[previous_label])
-                music_names.append(label)
-
-correspondance_dict = dict(zip(music_names, idxs))
-print("Finished correspondance dictionnary construction.")
 
 #%% rename loaders for different Modes
 if MODE == 'MUMOMUSE':
@@ -190,24 +171,31 @@ def train_multimodal(model, midi_train_loader, audio_dataset, correspondance,
     model.train()
     k = 0
     for batch_midi_snippets, batch_labels in midi_train_loader:
-        # batch generation
-        excepts = [correspondance_dict[label] for label in batch_labels]
-        batch_idxs = utils.random_except(len(audio_dataset), excepts, 99)
-        # forward
-        emb_midi, emb_audio = model(
-                batch_midi_snippets,
-                audio_dataset[correspondance[batch_labels[0]]][0].unsqueeze(0)
-                )
-        emb_anti_audios = [model.g(audio_dataset[idx][0].unsqueeze(0))
-                            for idx in batch_idxs]
-        # compute loss
-        loss = criterion(emb_midi, emb_audio, emb_anti_audios)
-        # backward
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        try:
+            # batch generation
+            excepts = [correspondance_dict[label] for label in batch_labels]
+            batch_idxs = utils.random_except(len(audio_dataset), excepts, 99)
+            # forward
+            emb_midi, emb_audio = model(
+                    batch_midi_snippets,
+                    audio_dataset[correspondance[batch_labels[0]]][0].unsqueeze(0)
+                    )
+            emb_anti_audios = [model.g(audio_dataset[idx][0].unsqueeze(0))
+                                for idx in batch_idxs]
+            # compute loss
+            loss = criterion(emb_midi, emb_audio, emb_anti_audios)
+            # backward
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
         
-        k += 1
+            k += 1
+            
+        except FileNotFoundError:
+            pass
+        except KeyError:
+            pass
+        
         if k%5 == 0:
             print("Trained with", k, "snippets.")
     return None
@@ -230,29 +218,35 @@ def test_multimodal(model, midi_test_loader, audio_dataset, correspondance,
     test_loss = 0
     with torch.no_grad():
         for midi_snippet, label in midi_test_loader:
-            # batch generation
-            excepts = [correspondance_dict[name] for name in label]
-            batch_idxs = utils.random_except(len(audio_dataset), excepts, 99)
-            # encode
-            emb_midi, emb_audio = model(
-                    midi_snippet,
-                    audio_dataset[correspondance[label[0]]][0].unsqueeze(0)
-                    )
-            emb_anti_audio = [model.g(audio_dataset[idx][0].unsqueeze(0))
-                                for idx in batch_idxs]
-            # compute loss
-            test_loss += criterion(emb_midi, emb_audio, emb_anti_audio)
+            try:
+                # batch generation
+                excepts = [correspondance_dict[name] for name in label]
+                batch_idxs = utils.random_except(len(audio_dataset), excepts, 99)
+                # encode
+                emb_midi, emb_audio = model(
+                        midi_snippet,
+                        audio_dataset[correspondance[label[0]]][0].unsqueeze(0)
+                        )
+                emb_anti_audio = [model.g(audio_dataset[idx][0].unsqueeze(0))
+                                    for idx in batch_idxs]
+                # compute loss
+                test_loss += criterion(emb_midi, emb_audio, emb_anti_audio)
+                
+                writer.add_embedding(emb_midi, tag='MIDI')
+                writer.add_embedding(emb_audio,tag='AUDIO')
             
-            writer.add_embedding(emb_midi, tag='MIDI')
-            writer.add_embedding(emb_audio,tag='AUDIO')
-    
+            except FileNotFoundError:
+                pass
+            except KeyError:
+                pass
+            
     test_loss /= len(midi_test_loader.dataset)
     writer.add_scalar('Test loss', test_loss, epoch)
     
     return test_loss
 
 #%% Optimization definition
-num_epochs = 20
+num_epochs = 15
 learning_rate = 2e-3
 
 if MODE == 'MUMOMUSE':
@@ -280,8 +274,8 @@ for epoch in range(num_epochs):
         print('epoch [{}], end of training.'.format(epoch+1))
         
         loss = test_multimodal(model, midi_snippet_test_loader,
-                               audio_dataset,
-                               correspondance_dict, epoch, writer)
+                               audio_dataset, correspondance_dict,
+                               criterion, epoch, writer)
         print('epoch [{}], test loss:{:.4f}'.format(epoch+1, loss.data.item()))
 
     else:
@@ -294,7 +288,7 @@ for epoch in range(num_epochs):
 writer.close()   
 #%% save model
 if MODE == 'MUMOMUSE':
-    torch.save(model.state_dict(), './models/multimodal.pth')
+    torch.save(model.state_dict(), './models/multimodal_small.pth')
 elif MODE == 'MIDI_AE':
     torch.save(model.state_dict(), './models/midi_AE2.pth')
 else: # 'AUDIO_AE'
