@@ -287,7 +287,7 @@ for epoch in range(num_epochs):
 writer.close()   
 #%% save model
 if MODE == 'MUMOMUSE':
-    torch.save(model.state_dict(), './models/multimodal_small.pth')
+    torch.save(model.state_dict(), './models/multimodal_small2.pth')
 elif MODE == 'MIDI_AE':
     torch.save(model.state_dict(), './models/midi_AE2.pth')
 else: # 'AUDIO_AE'

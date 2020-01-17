@@ -108,7 +108,13 @@ class Snippets(Dataset):
 
 
 class PairSnippets(Dataset):
-    """Pair of matching snippets dataset."""
+    """Pair of matching snippets dataset.
+    Attributes:
+        - midi_dataset (Dataset) : midi snippets dataset.
+        - audio_dataset (Dataset) : audio snippets dataset.
+        - labels (list) : list of common snippets labels.
+        - reverse_dict (dict) : get pair index from label.
+    """
     
     def __init__(self, midi_snippets_dataset, audio_snippets_dataset):
         self.midi_dataset = midi_snippets_dataset
@@ -128,6 +134,10 @@ class PairSnippets(Dataset):
         
         for label in self.labels:
             self.multimod_idxs.append([midi_dict[label], audio_dict[label]])
+            
+        pair_idxs = list(range(len(self.labels)))
+        
+        self.reverse_dict = dict(zip(self.labels, pair_idxs))
     
     def __len__(self):
         return len(self.labels)
