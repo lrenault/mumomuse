@@ -37,33 +37,33 @@ if len(audio_dataset) == 0:
 
 pairs_dataset = datasets.PairSnippets(midi_dataset, audio_dataset)
 
-#%% Train-test-validation split
+#%% Train-validation-test split
 set_size = len(pairs_dataset)
 
+# dataset reduction
 if dataset_reduced_to:
     used_dataset, leftlovers = torch.utils.data.random_split(
             pairs_dataset,
             [dataset_reduced_to, set_size - dataset_reduced_to])
     set_size = dataset_reduced_to
 
+# train-test split
+train_size = int(set_size * 0.8)
 
-train_size = int(set_size * 0.75)
-non_train_size = set_size - train_size
-
-train_set, non_training_set = torch.utils.data.random_split(
+train_set, test_set = torch.utils.data.random_split(
         used_dataset,
-        [train_size, non_train_size])
+        [train_size, set_size - train_size])
+
+# train-validation split
+valid_size = int(train_size * 0.05)
+train_set, valid_set = torch.utils.data.random_split(
+        train_set,
+        [train_size - valid_size, valid_size])
 
 
-test_size = int(non_train_size * 0.25)
-test_set, valid_set = torch.utils.data.random_split(
-        non_training_set,
-        [test_size, non_train_size - test_size])
-
-
-train_loader = DataLoader(train_set, batch_size=1)
-test_loader  = DataLoader(test_set,  batch_size=1)
+train_loader = DataLoader(train_set, batch_size=10)
 valid_loader = DataLoader(valid_set, batch_size=1)
+test_loader  = DataLoader(test_set,  batch_size=1)
 
 
 #%% train and test definition
@@ -126,8 +126,8 @@ def test_AE(model, test_loader, criterion, writer, epoch):
     
     target = data.squeeze(0)
     img = output.squeeze(0)
-    writer.add_image('epoch' + str(epoch) + ' original', target)
-    writer.add_image('epoch' + str(epoch) + ' reconstructed', img)
+    writer.add_image('epoch' + str(epoch) + ' original', target, epoch)
+    writer.add_image('epoch' + str(epoch) + ' reconstructed', img, epoch)
     
     # instant log
     plt.imshow(target.squeeze(0))
@@ -155,18 +155,16 @@ def train_multimodal(model, train_loader, optimizer, criterion, epoch):
     for batch_midi, batch_audio, batch_labels in train_loader:
         try:
             # batch generation
-            excepts = batch_labels
-            #batch_idxs = utils.random_except(len(train_loader.dataset), excepts, 99)
-            batch_idxs = torch.LongTensor(99).random_(len(train_loader.dataset))
-            
+            anti_audios = utils.batch_except(train_loader.dataset,
+                                             batch_labels, 49)
             # to device
-            batch_midi   = batch_midi.to(device)
-            batch_audio  = batch_audio.to(device)
+            batch_midi  = batch_midi.to(device)
+            batch_audio = batch_audio.to(device)
+            anti_audios = anti_audios.to(device)
             
             # forward
             emb_midi, emb_audio = model(batch_midi, batch_audio)
-            emb_anti_audios = [model.g(train_loader.dataset[idx][1].unsqueeze(0))
-                                for idx in batch_idxs] # to device ?
+            emb_anti_audios = model.g(anti_audios)
             # compute loss
             loss = criterion(emb_midi, emb_audio, emb_anti_audios)
             # backward
@@ -187,41 +185,41 @@ def train_multimodal(model, train_loader, optimizer, criterion, epoch):
             print("Trained with", k, "snippets.")
     return None
 
-def test_multimodal(model, test_loader, criterion, epoch, writer):
+def eval_multimodal(model, loader, criterion, epoch, writer, set_name):
     """ Testing method for multimodal network.
     Args :
         - model (nn.Module) : model to train.
-        - train_loader (DataLoader) : Loader of the matching pairs testing set.
+        - loader (DataLoader) : Loader of the matching pairs test/validation set.
         - criterion (nn.Module) : loss function.
         - epoch (int) : training iteration number.
         - writer (Summarywriter) : for datalog.
+        - set_name (string) : 
     Output :
         - test_loss (loss) : computed loss value.
     """
     model.eval()
-    test_loss = 0
+    loss = 0
     with torch.no_grad():
         midi_mat  = torch.zeros(1, 32)
         audio_mat = torch.zeros(1, 32)
         midi_metadata  = ['None']
         audio_metadata = ['None']
-        for batch_midi, batch_audio, batch_labels in test_loader:
+        for batch_midi, batch_audio, batch_labels in loader:
             try:
                 # batch generation
-                excepts = batch_labels
-                #batch_idxs = utils.random_except(len(test_loader.dataset), excepts, 99)
-                batch_idxs = torch.LongTensor(99).random_(len(test_loader.dataset))
-                
+                anti_audios = utils.batch_except(loader.dataset,
+                                                 batch_labels, 49)
                 # to device
-                batch_midi   = batch_midi.to(device)
-                batch_audio  = batch_audio.to(device)
+                batch_midi  = batch_midi.to(device)
+                batch_audio = batch_audio.to(device)
+                anti_audios = anti_audios.to(device)
                 
                 # encode
                 emb_midi, emb_audio = model(batch_midi, batch_audio)
-                emb_anti_audios = [model.g(test_loader.dataset[idx][1].unsqueeze(0))
-                                    for idx in batch_idxs]
+                emb_anti_audios = model.g(anti_audios)
+
                 # compute loss
-                test_loss += criterion(emb_midi, emb_audio, emb_anti_audios)
+                loss += criterion(emb_midi, emb_audio, emb_anti_audios)
                 
                 # add to metadata
                 midi_mat = torch.cat((midi_mat, emb_midi), 0)
@@ -243,10 +241,10 @@ def test_multimodal(model, test_loader, criterion, epoch, writer):
         
         writer.add_embedding(mat, metadata=metadata, global_step=epoch)
             
-    test_loss /= len(test_loader.dataset)
-    writer.add_scalar('Test loss', test_loss, epoch)
+    loss /= len(loader.dataset)
+    writer.add_scalar(set_name + ' loss', loss, epoch)
     
-    return test_loss
+    return loss
 
 #%% Optimization definition
 num_epochs = 15
@@ -272,10 +270,14 @@ for epoch in range(num_epochs):
     if MODE == 'MUMOMUSE':
         print('epoch [{}], training...'.format(epoch+1))
         train_multimodal(model, train_loader, optimizer, criterion, epoch)
-        print('epoch [{}], end of training.'.format(epoch+1))
-        
-        loss = test_multimodal(model, test_loader, criterion, epoch, writer)
-        print('epoch [{}], test loss: {:.4f}'.format(epoch+1, loss.data.item()))
+        print('epoch [{}], end of training. Now evaluating...'.format(
+                epoch+1))
+        train_loss = eval_multimodal(model, train_loader, criterion, 
+                                     epoch, writer, "Train")
+        test_loss  = eval_multimodal(model, test_loader, criterion,
+                                     epoch, writer, "Test")
+        print('epoch [{}]: train loss: {:.4f}, test loss: {:.4f}'.format(
+                epoch+1, train_loss.data.item(), test_loss.data.item()))
 
     else:
         print('epoch [{}], training...'.format(epoch+1))
@@ -287,13 +289,14 @@ for epoch in range(num_epochs):
 writer.close()   
 #%% save model
 if MODE == 'MUMOMUSE':
-    torch.save(model.state_dict(), './models/multimodal_small2.pth')
+    torch.save(model.state_dict(), './models/multimodal_small3.pth')
 elif MODE == 'MIDI_AE':
     torch.save(model.state_dict(), './models/midi_AE2.pth')
 else: # 'AUDIO_AE'
     torch.save(model.state_dict(), './models/audio_AE3.pth')
     
-#%% Validation
+#%% Test
+model.load_state_dict(torch.load('models/multimodal_small3.pth'))
 writer = SummaryWriter()
-loss = test_multimodal(model, valid_loader, criterion, 0, writer)
+loss = eval_multimodal(model, train_loader, criterion, 0, writer, "Train")
 writer.close()
