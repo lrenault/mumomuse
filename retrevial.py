@@ -21,15 +21,20 @@ def NnQuery(y,S,dist = "cosine"):
     S = Numpy Array
     dist = Distance function (Cosine by default)
     """
+    
     iMax = np.shape(S)[1]
-    d = np.zeros(2,iMax)
+    
+    d = np.zeros((2,iMax))
     for i in range(iMax):
-        d[1][i] = i
-        d[2][i] = CosDist(y,S[:][i])
+        d[0][i] = i
+        d[1][i] = CosDist(y,S[:][i])
         
     dSorted = np.sort(d)
-    NNindex = dSorted[1][1]
+    NNindex = np.int32(dSorted[0][0])
     
     return NNindex
+
+
+    
     
         
