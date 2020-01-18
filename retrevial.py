@@ -6,9 +6,10 @@ Created on Thu Jan 16 20:22:07 2020
 """
 import numpy as np
 import utils 
-import loader as load
 import datasets as data
 import autoencod as ae
+import torch.nn.Module as mod
+from torch import load
 
 def NnQuery(y,S):
     """
@@ -29,13 +30,14 @@ def NnQuery(y,S):
     
     return NNindex
 
-def AudioRetrieval(y):
-    # Building the MIDI latent space
+def AudioRetrieval(y,model_dir = "models/multimodal_small.pth"):
+    # Sets the MIDI points in the latent space
     dataset,labels = data.MIDIDataset()
     Slist = []
-    Encoder = ae.midi_encoder()
+    Encoder = ae.multimodal()
+    mod.load_state_dict(load(model_dir))
     for snip in dataset :       
-        L = Encoder.forward(snip)
+        L,_ = Encoder.forward(snip)
         Slist.append(L)
     S = tuple(Slist)
     #Find the nearest MIDI files to y in the latent space
@@ -43,16 +45,17 @@ def AudioRetrieval(y):
     RetrievedMIDI = dataset[NNindex,:,:,:]
     return RetrievedMIDI
 
-def MIDIRetrieval(y):
-    # Building the MIDI latent space
+def MIDIRetrieval(y,model_dir = "models/multimodal_small.pth"):
+    # Sets the MIDI points in the latent space
     dataset,labels = data.Snippets()
     Slist = []
-    Encoder = ae.audio_encoder()
+    Encoder = ae.multimodal()
+    mod.load_state_dict(load(model_dir))
     for snip in dataset :       
-        L = Encoder.forward(snip)
+        _,L = Encoder.forward(snip)
         Slist.append(L)
     S = tuple(Slist)
-    #Find the nearest MIDI files to y in the latent space
+    #Finds the nearest MIDI files to y in the latent space
     NNindex = NnQuery(y,S)
     RetrievedAudio = dataset[NNindex,:,:,:]
     return RetrievedAudio
