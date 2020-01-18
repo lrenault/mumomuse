@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
+from optparse import OptionParser
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -9,68 +10,17 @@ import loader
 import autoencod
 import utils
 
-dataset_reduced_to = 320 # for small dataset. None for no dataset reduction
-MODE = 'MUMOMUSE' # 'AUDIO_AE', 'MIDI_AE'
-
 # CUDA for Pytorch
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if use_cuda else "cpu")
-#cudnn.benchmark = True
-
-#%% Snippet Dataset construction 
-midi_dataset  = datasets.Snippets('db/splitMIDI')
-audio_dataset = datasets.Snippets('db/splitAUDIO')
-
-midi_loader  = loader.MIDILoader()
-audio_loader = loader.AudioLoader()
-
-# generate snippets from raw data if snippet folder is empty
-if len(midi_dataset) == 0:
-    MIDIpath = 'db/nottingham-dataset-master/MIDI'
-    midi_loader.split_and_export_dataset(MIDIpath)
-    midi_dataset = datasets.Snippets('db/splitMIDI')
-
-if len(audio_dataset) == 0:
-    audiopath = 'db/nottingham-dataset-master/AUDIO'
-    audio_loader.split_and_export_dataset(audiopath)
-    audio_dataset = datasets.Snippets('db/splitAUDIO')
-
-pairs_dataset = datasets.PairSnippets(midi_dataset, audio_dataset)
-
-#%% Train-validation-test split
-set_size = len(pairs_dataset)
-
-# dataset reduction
-if dataset_reduced_to:
-    used_dataset, leftlovers = torch.utils.data.random_split(
-            pairs_dataset,
-            [dataset_reduced_to, set_size - dataset_reduced_to])
-    set_size = dataset_reduced_to
-
-# train-test split
-train_size = int(set_size * 0.8)
-
-train_set, test_set = torch.utils.data.random_split(
-        used_dataset,
-        [train_size, set_size - train_size])
-
-# train-validation split
-valid_size = int(train_size * 0.05)
-train_set, valid_set = torch.utils.data.random_split(
-        train_set,
-        [train_size - valid_size, valid_size])
-
-
-train_loader = DataLoader(train_set, batch_size=10)
-valid_loader = DataLoader(valid_set, batch_size=1)
-test_loader  = DataLoader(test_set,  batch_size=1)
-
+torch.backends.cudnn.benchmark = True
 
 #%% train and test definition
-def train_AE(model, train_loader, optimizer, criterion, epoch):
+def train_AE(model, MODE, train_loader, optimizer, criterion, epoch):
     """ Training method for auto-encoders.
     Args :
         - model (nn.Module) : autoencoder model to train.
+        - mode (MIDI_AE or AUDIO_AE) : midi or train auto-encoder train.
         - train_loader (Dataloader) : Dataloader of the train set.
         - optimizer (torch.optim) : optimization method.
         - criterion (nn.Functional) : loss function.
@@ -98,10 +48,11 @@ def train_AE(model, train_loader, optimizer, criterion, epoch):
     return None
 
 
-def test_AE(model, test_loader, criterion, writer, epoch):
+def eval_AE(model, MODE, test_loader, criterion, writer, epoch):
     """ Testing method for autoencoders.
     Args :
         - model (nn.Module) : autoencoder model to test.
+        - mode (MIDI_AE or AUDIO_AE) : midi or train auto-encoder train.
         - test_lodaer (DataLoader) : Dataloader of the test set.
         - criterion (nn.Functional) : loss function.
         - writer (SummaryWriter) : for data log.
@@ -245,58 +196,159 @@ def eval_multimodal(model, loader, criterion, epoch, writer, set_name):
     writer.add_scalar(set_name + ' loss', loss, epoch)
     
     return loss
+#%% whole main process
+def main(DatasetPATH='nottingham-dataset-master',
+         MODE='MUMOMUSE',
+         pretrained_model=None,
+         dataset_reduced_to=None,
+         num_epochs=15):
+    """ Main training function.
+    Args:
+        - DatasetPATH (str): name of the dataset containing MIDI and AUDIO raw files folder.
+        - MODE ('MUMOMUSE', 'MIDI_AE', 'AUDIO_AE'): train multimodal model, midi auto-encoder, or audio auto-encoder.
+        - pretrained_model (path): resume training from the given model state.
+        - dataset_reduced_to (int): reduce the dataset for small training. None for no dataset reduction.
+    """
+    dataset_reduced_to = 320 
+    MODE = 'MUMOMUSE' # 'AUDIO_AE', 'MIDI_AE'
 
-#%% Optimization definition
-num_epochs = 15
-learning_rate = 2e-3
+    # Snippet Dataset construction 
+    midi_dataset  = datasets.Snippets('db/splitMIDI')
+    audio_dataset = datasets.Snippets('db/splitAUDIO')
 
-if MODE == 'MUMOMUSE':
-    model = autoencod.multimodal()
-    criterion = utils.pairwise_ranking_objective()
-else:
-    if MODE == 'MIDI_AE':
-        model = autoencod.midi_AE()
-    else: # 'AUDIO_AE'
-        model = autoencod.audio_AE()
-    criterion = nn.functional.mse_loss
+    midi_loader  = loader.MIDILoader()
+    audio_loader = loader.AudioLoader()
 
-optimizer = torch.optim.Adam(model.parameters(),
-                             lr=learning_rate,
-                             weight_decay=1e-5)
-#%% Optimization run
-writer = SummaryWriter()
+    # generate snippets from raw data if snippet folder is empty
+    if len(midi_dataset) == 0:
+        MIDIpath = 'db/' + DatasetPATH + '/MIDI'
+        midi_loader.split_and_export_dataset(MIDIpath)
+        midi_dataset = datasets.Snippets('db/splitMIDI')
+        
+    if len(audio_dataset) == 0:
+        audiopath = 'db/' + DatasetPATH + '/AUDIO'
+        audio_loader.split_and_export_dataset(audiopath)
+        audio_dataset = datasets.Snippets('db/splitAUDIO')
+        
+    pairs_dataset = datasets.PairSnippets(midi_dataset, audio_dataset)
 
-for epoch in range(num_epochs):
-    if MODE == 'MUMOMUSE':
-        print('epoch [{}], training...'.format(epoch+1))
-        train_multimodal(model, train_loader, optimizer, criterion, epoch)
-        print('epoch [{}], end of training. Now evaluating...'.format(
-                epoch+1))
-        train_loss = eval_multimodal(model, train_loader, criterion, 
-                                     epoch, writer, "Train")
-        test_loss  = eval_multimodal(model, test_loader, criterion,
-                                     epoch, writer, "Test")
-        print('epoch [{}]: train loss: {:.4f}, test loss: {:.4f}'.format(
-                epoch+1, train_loss.data.item(), test_loss.data.item()))
+    # Train-validation-test split
+    set_size = len(pairs_dataset)
 
-    else:
-        print('epoch [{}], training...'.format(epoch+1))
-        train_AE(model, train_loader, criterion, optimizer, epoch)
-        print('epoch [{}], end of training.'.format(epoch+1))
-        loss = test_AE(model, test_loader, criterion, writer, epoch)
-        print('epoch [{}], test loss: {:.4f}'.format(epoch+1, loss.data.item()))
-
-writer.close()   
-#%% save model
-if MODE == 'MUMOMUSE':
-    torch.save(model.state_dict(), './models/multimodal_small3.pth')
-elif MODE == 'MIDI_AE':
-    torch.save(model.state_dict(), './models/midi_AE2.pth')
-else: # 'AUDIO_AE'
-    torch.save(model.state_dict(), './models/audio_AE3.pth')
+    # dataset reduction
+    if dataset_reduced_to:
+        used_dataset, leftlovers = torch.utils.data.random_split(
+                pairs_dataset,
+                [dataset_reduced_to, set_size - dataset_reduced_to])
+        set_size = dataset_reduced_to
+        
+    # train-test split
+    train_size = int(set_size * 0.8)
     
-#%% Test
-model.load_state_dict(torch.load('models/multimodal_small3.pth'))
-writer = SummaryWriter()
-loss = eval_multimodal(model, train_loader, criterion, 0, writer, "Train")
-writer.close()
+    train_set, test_set = torch.utils.data.random_split(
+            used_dataset,
+            [train_size, set_size - train_size])
+    
+    # train-validation split
+    valid_size = int(train_size * 0.05)
+    train_set, valid_set = torch.utils.data.random_split(
+            train_set,
+            [train_size - valid_size, valid_size])
+    
+    
+    train_loader = DataLoader(train_set, batch_size=30)
+    valid_loader = DataLoader(valid_set, batch_size=1)
+    test_loader  = DataLoader(test_set,  batch_size=1)
+
+    # Optimization definition
+    
+    
+    if MODE == 'MUMOMUSE':
+        model = autoencod.multimodal()
+        if pretrained_model:
+            model.load_state_dict(torch.load(pretrained_model))
+        criterion = utils.pairwise_ranking_objective()
+    else:
+        if MODE == 'MIDI_AE':
+            model = autoencod.midi_AE()
+        else: # 'AUDIO_AE'
+            model = autoencod.audio_AE()
+        criterion = nn.functional.mse_loss
+    
+    # optimization definitinon
+    learning_rate = 2e-3
+    optimizer = torch.optim.Adam(model.parameters(),
+                                 lr=learning_rate,
+                                 weight_decay=1e-5)
+
+    # Training
+    writer = SummaryWriter()
+    
+    for epoch in range(num_epochs):
+        print('epoch [{}], training...'.format(epoch+1))
+        
+        if MODE == 'MUMOMUSE':
+            train_multimodal(model, train_loader, optimizer, criterion, epoch)
+            print('epoch [{}], end of training. Now evaluating...'.format(
+                    epoch+1))
+            train_loss = eval_multimodal(model, train_loader, criterion, 
+                                         epoch, writer, "Train")
+            test_loss  = eval_multimodal(model, valid_loader, criterion,
+                                         epoch, writer, "Validation")
+            print('epoch [{}]: train loss: {:.4f}, evaluation loss: {:.4f}'.format(
+                    epoch+1, train_loss.data.item(), test_loss.data.item()))
+            
+        else: # autoencoder train
+            train_AE(model, MODE, train_loader, criterion, optimizer, epoch)
+            print('epoch [{}], end of training.'.format(epoch+1))
+            loss = eval_AE(model, MODE, test_loader, criterion, writer, epoch)
+            print('epoch [{}], validation loss: {:.4f}'.format(epoch+1, loss.data.item()))
+    
+    # Testing
+    print("Now testing...")
+    if MODE == 'MUMOMUSE':
+        loss = eval_multimodal(model, test_loader, criterion, 0, writer, "Test")
+    else:
+        loss = eval_AE(model, MODE, test_loader, criterion, writer, 0)
+    print("Test loss:", loss)
+    writer.add_scalar("Test loss", loss, 0)
+    
+    writer.close()   
+    
+    # save model
+    if MODE == 'MUMOMUSE':
+        torch.save(model.state_dict(), './models/multimodal_small3.pth')
+    elif MODE == 'MIDI_AE':
+        torch.save(model.state_dict(), './models/midi_AE2.pth')
+    else: # 'AUDIO_AE'
+        torch.save(model.state_dict(), './models/audio_AE3.pth')
+#%%
+main()
+#%% main call
+if __name__ == "__main__":
+    
+	parser = OptionParser("usage: %prog [options] <path to database>")
+
+	parser.add_option("-e", "--epochs", type="int",
+	                  help="Number of Epochs",
+	                  dest="epochs", default=20)
+
+	parser.add_option("-g", "--gpu", type="int",
+	                  help="ID of the GPU, run in CPU by default.", 
+	                  dest="gpu")
+
+	parser.add_option("-o", "--outPath", type="string",
+	                  help="Path for the temporary folder.", 
+	                  dest="outPath", default="OUT/")
+
+	parser.add_option("-l", "--learning_rate", type="float",
+	                  help="Value of the starting learning rate", 
+	                  dest="learning_rate", default=1e-2)
+
+	options, arguments = parser.parse_args()
+	
+	if len(arguments) == 1:
+		main(arguments[0], EPOCHS=options.epochs, gpu=options.gpu,outPath=options.outPath, learning_rate=options.learning_rate)
+
+	else:
+		parser.error("You have to specify the path of the database.")
