@@ -8,7 +8,6 @@ import numpy as np
 import utils 
 import datasets as data
 import autoencod as ae
-import torch.nn.Module as mod
 from torch import load
 
 def NnQuery(y,S):
@@ -30,12 +29,14 @@ def NnQuery(y,S):
     
     return NNindex
 
-def AudioRetrieval(y,model_dir = "models/multimodal_small.pth"):
-    # Sets the MIDI points in the latent space
-    dataset,labels = data.MIDIDataset()
-    Slist = []
+def AudioRetrieval(x,model_dir = "models/multimodal_small.pth", data_dir = "db/splitMIDI"):
     Encoder = ae.multimodal()
-    mod.load_state_dict(load(model_dir))
+    Encoder.load_state_dict(load(model_dir))
+    # Put the spectrogram x in the latent space
+    _,y = Encoder.forward(x) 
+    # Sets the MIDI points in the latent space
+    dataset,labels = data.Snippets(data_dir)
+    Slist = []
     for snip in dataset :       
         L,_ = Encoder.forward(snip)
         Slist.append(L)
@@ -43,14 +44,17 @@ def AudioRetrieval(y,model_dir = "models/multimodal_small.pth"):
     #Find the nearest MIDI files to y in the latent space
     NNindex = NnQuery(y,S)
     RetrievedMIDI = dataset[NNindex,:,:,:]
+    print(labels[NNindex])
     return RetrievedMIDI
 
-def MIDIRetrieval(y,model_dir = "models/multimodal_small.pth"):
-    # Sets the MIDI points in the latent space
-    dataset,labels = data.Snippets()
-    Slist = []
+def MIDIRetrieval(x,model_dir = "models/multimodal_small.pth",data_dir = "db/SplitAudio"):
     Encoder = ae.multimodal()
-    mod.load_state_dict(load(model_dir))
+    Encoder.load_state_dict(load(model_dir))
+    #Put the MIDI snippet x in the latent space
+    y,_ = Encoder.forward(x)
+    # Sets the Audio points in the latent space
+    dataset,labels = data.Snippets(data_dir)
+    Slist = []
     for snip in dataset :       
         _,L = Encoder.forward(snip)
         Slist.append(L)
@@ -58,6 +62,7 @@ def MIDIRetrieval(y,model_dir = "models/multimodal_small.pth"):
     #Finds the nearest MIDI files to y in the latent space
     NNindex = NnQuery(y,S)
     RetrievedAudio = dataset[NNindex,:,:,:]
+    print(labels[NNindex])
     return RetrievedAudio
     
     
