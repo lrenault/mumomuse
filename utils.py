@@ -52,7 +52,6 @@ def batch_except(dataset, excepts, batch_size=99):
                     break
     return torch.stack(batch)
     
-
 def s(x, y):
     """ Cosine similarity between two tensors.
     Args:
@@ -82,5 +81,4 @@ class pairwise_ranking_objective(nn.Module):
             loss += max(0, self.margin \
                             - torch.sum(s(midi_match, audio_match)) \
                             + torch.sum(s(midi_match, audio)))
-        return loss
-    
+        return loss    
