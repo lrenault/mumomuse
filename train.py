@@ -208,9 +208,6 @@ def main(DatasetPATH='nottingham-dataset-master',
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:" + GPU_ID if use_cuda else "cpu")
     torch.backends.cudnn.benchmark = True
-    
-    dataset_reduced_to = 320 
-    MODE = 'MUMOMUSE' # 'AUDIO_AE', 'MIDI_AE'
 
     ### Snippet Dataset construction ###
     midi_dataset  = datasets.Snippets('db/splitMIDI')
@@ -259,7 +256,7 @@ def main(DatasetPATH='nottingham-dataset-master',
     valid_loader = DataLoader(valid_set, batch_size=1)
     test_loader  = DataLoader(test_set,  batch_size=1)
     
-    # Optimization definition
+    # model definition
     if MODE == 'MUMOMUSE':
         model = autoencod.multimodal()
         criterion = utils.pairwise_ranking_objective()
@@ -276,10 +273,7 @@ def main(DatasetPATH='nottingham-dataset-master',
         model.cuda(device=device)
     
     # optimization definitinon
-    learning_rate = 2e-3
-    optimizer = torch.optim.Adam(model.parameters(),
-                                 lr=learning_rate,
-                                 weight_decay=1e-5)
+    optimizer = torch.optim.Adam(model.parameters(), lr=2e-3, weight_decay=1e-5)
     
     # Training
     writer = SummaryWriter()
