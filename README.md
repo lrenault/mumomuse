@@ -4,6 +4,11 @@
 
 ## Getting Started
 
+The dependencies and directories can be installed using the command:
+```
+sh init.sh
+```
+
 ### Dependencies
 
 Python libraries used for running this project:
@@ -11,25 +16,67 @@ Python libraries used for running this project:
 * pytorch
 * [torchaudio](https://github.com/pytorch/audio) (v0.4.0)
 * [pretty_midi](https://github.com/craffel/pretty-midi) (0.2.8)
-* tensorboard 
+* tensorboard
 
+Run `hello.py` to monitor which package is missing.
 
-### Set-up for training
+### Folder organization
 
-Create a `/db/` folder in the working folder containing:
-* the audio and matching MIDI datasets.
-* a `/splitAUDIO/` folder for containing the audio snippets.
-* a `/splitMIDI/` folder for keeping the midi snippets.
+The directories should be organized as follow:
+```
+mumomuse
+└──db
+    └── yourDataset
+        └── AUDIO
+            └── *.wav
+        └── MIDI
+            └── *.mid
+    └── splitMIDI
+    └── splitAUDIO
+```
 
-Then run:
+## Data preprocessing
+
+Preprocess the raw audio and midi files in the given datasets into splitted snippet tensors, then the snippets are stored in the given export folder.
 
 ```
-train.py
+preproc.py
+```
+
+
+## Network training
+
+Train a multimodal, audio auto-encoder or midi auto-encoder model using the audio and midi snippets datasets.
+
+```
+usage: train.py [-h] [-midi MIDIPATH] [-audio AUDIOPATH] [-gpu GPU_ID]
+                [-r REDUCE] [-t PRETRAINED] [-m MODE] [-e NUM_EPOCHS]
+                [-b BATCH]
+
+Train a model with given dataset.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -midi MIDIPATH, --midiPATH MIDIPATH
+                        Folder containing the midi snippets (db/splitMIDI by default).
+  -audio AUDIOPATH, --audioPATH AUDIOPATH
+                        Folder containing the audio snippets (db/splitAUDIO by default).
+  -gpu GPU_ID           GPU ID.
+  -r REDUCE, --reduce REDUCE
+                        Dataset length reduction to. (None by default).
+  -t PRETRAINED, --trained PRETRAINED
+                        Pretrained model path.
+  -m MODE, --mode MODE  Model type to be trained ("MUMOMUSE", "AUDIO_AE" or
+                        "MIDI_AE").
+  -e NUM_EPOCHS, --epochs NUM_EPOCHS
+                        Number of epochs.
+  -b BATCH, --batch BATCH
+                        Batch size.
 ```
 
 The embedded space construction can be viewed via Tensorboard using the command:
 ```
-tensorboard --logdir=valid_runs
+tensorboard --logdir=runs
 ```
 
 ### Two-way snippets retrieval
