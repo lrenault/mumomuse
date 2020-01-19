@@ -72,6 +72,7 @@ class MIDIDataset(Dataset):
         midi = PrettyMIDI(filename)
         
         if self.transform:
+            #print(midi.get_end_time()) # TO BE DELETED
             midi = self.transform(midi)
         
         return midi, label
@@ -104,3 +105,52 @@ class Snippets(Dataset):
             snippet = self.transform(snippet)
         
         return snippet, label
+
+
+class PairSnippets(Dataset):
+    """Pair of matching snippets dataset.
+    Attributes:
+        - midi_dataset (Dataset) : midi snippets dataset.
+        - audio_dataset (Dataset) : audio snippets dataset.
+        - labels (list) : list of common snippets labels.
+        - reverse_dict (dict) : get pair index from label.
+    """
+    
+    def __init__(self, midi_snippets_dataset, audio_snippets_dataset):
+        self.midi_dataset = midi_snippets_dataset
+        self.audio_dataset = audio_snippets_dataset
+        
+        midi_labels = midi_snippets_dataset.labels
+        audio_labels = audio_snippets_dataset.labels
+        
+        midi_idxs  = list(range(len(midi_snippets_dataset)))
+        audio_idxs = list(range(len(audio_snippets_dataset)))
+
+        midi_dict  = dict(zip(midi_labels,  midi_idxs))
+        audio_dict = dict(zip(audio_labels, audio_idxs))
+        
+        self.multimod_idxs = []
+        self.labels = list(set(midi_labels).intersection(audio_labels))
+        
+        for label in self.labels:
+            self.multimod_idxs.append([midi_dict[label], audio_dict[label]])
+            
+        pair_idxs = list(range(len(self.labels)))
+        
+        self.reverse_dict = dict(zip(self.labels, pair_idxs))
+    
+    def __len__(self):
+        return len(self.labels)
+    
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        
+        label = self.labels[idx]
+        midi_idx, audio_idx = self.multimod_idxs[idx]
+        
+        return  self.midi_dataset[midi_idx][0], \
+                self.audio_dataset[audio_idx][0], \
+                label
+        
+        

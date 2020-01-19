@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Dec 14 15:30:01 2019
-
-@author: lrenault
-"""
-#%%
 import numpy as np
 import torch
 import torch.nn as nn
@@ -19,65 +11,106 @@ import loader
 import datasets
 import utils
 
+audiopath = 'db/nottingham-dataset-master/AUDIO'
 MIDIpath = 'db/nottingham-dataset-master/MIDI'
-midiLoader = loader.MIDILoader()
-rawMIDIloader = midiLoader.loader(MIDIpath, batch_size=1)
-MIDIsnippet_loader = midiLoader.midi_snippets_loader(batch_size=1, shuffle=True)
 
-AUDIOpath = 'db/nottingham-dataset-master/AUDIO'
-rawAUDIOset = datasets.AudioDataset(AUDIOpath)
+audio_loader = loader.AudioLoader()
+midi_loader = loader.MIDILoader()
 
-dataset = MIDIsnippet_loader.dataset
-music_names = dataset.labels
-idxs = list(range(len(dataset)))
+raw_audio_loader = audio_loader.loader(audiopath)
+raw_midi_loader  = midi_loader.loader(MIDIpath)
+
+music_names = raw_midi_loader.dataset.music_names
+idxs = list(range(len(raw_midi_loader.dataset)))
 
 correspondance_dict = dict(zip(music_names, idxs))
 #%%
+x = []
+y = []
+y2= []
+
 k = 0
-for snippet, name in MIDIsnippet_loader:
-    #print(snippet.size(), '\n', name)
-    names = name
+for batch_audio, batch_music_name in raw_audio_loader:
+    midi, label = raw_midi_loader.dataset[correspondance_dict[batch_music_name[0]]]
+
+    audio_length = batch_audio.squeeze(0).size()[2]
+    midi_length = midi.size()[2]
+    
+    print(midi_length//42 - audio_length//42, audio_length, midi_length)
+    
+    x.append(audio_length)
+    y.append(midi_length - audio_length)
+    y2.append(midi_length//42 - audio_length//42)
+    
+    if k == 100:
+        break
+    k += 1
+#%%
+error = np.argmax(x)
+del x[error]
+del y[error]
+del y2[error]
+#%%
+plt.figure(figsize=(10, 10))
+plt.plot(x, y, 'o')
+plt.plot(x, np.zeros(len(x)), color='r')
+plt.xlabel('Audio length [time bin]')
+plt.ylabel('(Pianoroll length) - (Audio length) [time bin]')
+plt.title('Alignment Error (with adaptative sampling period)')
+plt.savefig('alignment_error_adaptative.png')
+plt.show()
+#%%
+plt.figure(figsize=(10,10))
+plt.plot(x, np.zeros(len(x)), color='r')
+plt.plot(x, y2, 'o')
+plt.show()
+#%%
+plt.figure(figsize=(10, 10))
+t_v = np.arange(770)
+y_v = [utils.sampling_period_from_length(t) for t in t_v]
+plt.plot(t_v, y_v)
+plt.show()
+#%%
+midi_dataset = datasets.Snippets('db/splitMIDI')
+audio_dataset = datasets.Snippets('db/splitAUDIO')
+
+pairs_dataset = datasets.PairSnippets(midi_dataset, audio_dataset)
+
+pairs_loader = torch.utils.data.DataLoader(pairs_dataset, batch_size=10)
+
+#%%
+for midi, audio, label in pairs_loader:
+    print(midi.size(), audio.size(), label)
     break
 
-#print(names)
-excepts = [correspondance_dict[name] for name in names]
-
-print(utils.random_except(4, [2], 10))
 #%%
-filename = 'db/nottingham-dataset-master/MIDI/reelsr-t64.mid'
-target_sr = 22050
-
-midi = pretty_midi.PrettyMIDI(filename)
-nb_instru = 0
-for instrument in midi.instruments:
-    if not instrument.is_drum:
-        roll = instrument.get_piano_roll(fs=21.54)
-        plt.figure(figsize=(20,10))
-        plt.imshow(roll)
-        plt.show()
-        print((roll.shape[1]))
-        if nb_instru == 0:
-            data = roll
-        else :
-            data += roll
-        nb_instru += 1
-        
-
-data = torch.Tensor(data)
-print(data.size())
+midi_loader.split_and_export_dataset(MIDIpath)
+midi_dataset = datasets.Snippets('db/splitMIDI')
 #%%
-audio_loader = loader.AudioLoader()
-data_loader  = audio_loader.get_YESNOLoader()
+audio_loader.split_and_export_dataset(audiopath)
+audio_dataset = datasets.Snippets('db/splitAUDIO')
+#%%
+MIDIsnippet_loader = midi_loader.midi_snippets_loader(batch_size=1, shuffle=True)
+for truc, name in MIDIsnippet_loader:
+    print(truc.size())
+    break
+print(MIDIsnippet_loader.dataset[3][0].size())
+#%%
+midi_test = 'db/nottingham-dataset-master/MIDI/ashover10.mid'
+midi = pretty_midi.PrettyMIDI(midi_test)
+print(midi.get_end_time())
 
 #%%
 filename = 'db/nottingham-dataset-master/AUDIO/ashover3.wav'
 # load audio
 waveform, origin_sr = torchaudio.load(filename)
+waveform = waveform.mean(0).unsqueeze(0)
+print(waveform.size())
 # take only first channel and 22.05kHz sampling rate
 waveform = torchaudio.transforms.Resample(origin_sr,
-                                          target_sr)(waveform[0,:].view(1,-1)) 
+                                          22500)(waveform[0]) 
 
-specgram = torchaudio.transforms.MelSpectrogram(sample_rate=target_sr,
+specgram = torchaudio.transforms.MelSpectrogram(sample_rate=22500,
                                                 n_fft=2048,
                                                 win_length=2048,
                                                 f_min=30.0,

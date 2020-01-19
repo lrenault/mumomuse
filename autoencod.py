@@ -42,6 +42,7 @@ class audio_encoder(nn.Module):
         x = nn.Linear(32*5*2, 128)(x)
         x = nn.Linear(128, 32)(x)
         L = nn.AvgPool1d(kernel_size=1)(x.unsqueeze(1))
+        L = L.squeeze(1) # delete channel dimension
         #print("Latent dimension =", L.size())
         return L
 
@@ -75,7 +76,7 @@ class audio_decoder(nn.Module):
         
     def forward(self, L):
         # FC Layers
-        y = nn.Linear(32,  128)(L)
+        y = nn.Linear(32,  128)(L.unsqueeze(1))
         y = nn.Linear(128, 32*5*2)(y)
         
         y = y.view(1, 32, 5, 2)
@@ -140,6 +141,7 @@ class midi_encoder(nn.Module):
         x = nn.Linear(256, 128)(x)
         x = nn.Linear(128, 32)(x)
         L = nn.AvgPool1d(kernel_size=1)(x.unsqueeze(1))
+        L = L.squeeze(1)
         #print("Latent dimension =", L.size())
         return L
 
@@ -174,7 +176,7 @@ class midi_decoder(nn.Module):
     
     def forward(self, L):
         # FC Layers
-        y = nn.Linear(32,  128)(L)
+        y = nn.Linear(32,  128)(L.unsqueeze(1))
         y = nn.Linear(128, 256)(y)
         y = nn.Linear(256, 32*8*2)(y)
         
