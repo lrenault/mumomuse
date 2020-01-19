@@ -101,27 +101,23 @@ def train_multimodal(model, train_loader, optimizer, criterion, epoch, device):
             batch_midi  = batch_midi.to(device)
             batch_audio = batch_audio.to(device)
             anti_audios = anti_audios.to(device)
-            
             # forward
             emb_midi, emb_audio = model(batch_midi, batch_audio)
             emb_anti_audios = model.g(anti_audios)
             # compute loss
             loss = criterion(emb_midi, emb_audio, emb_anti_audios)
-            print(loss)
             # backward
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
         
             k += 1
-            
         except FileNotFoundError:
             print('FileNotFoundError')
-            pass
+            
         except KeyError:
             print('KeyError')
-            pass
-        
+            
         if k%10 == 0:
             print("Trained with", k, "snippet batches.")
     return None
