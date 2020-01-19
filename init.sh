@@ -1,5 +1,6 @@
 #!/bin/bash
 
+mkdir temp
 mkdir db
 cd db
 mkdir splitAUDIO
