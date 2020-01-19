@@ -299,7 +299,8 @@ def main(DatasetPATH='nottingham-dataset-master',
             print('epoch [{}], validation loss: {:.4f}'.format(epoch+1,
                   loss.data.item()))
             
-        torch.save(model.state_dict(), './temp/model_epoch' + str(epoch) + 'pth')
+        torch.save(model.state_dict(), './temp/model_epoch' \
+                                       + str(epoch) + '.pth')
         print('Model saved')
         
     # Testing
