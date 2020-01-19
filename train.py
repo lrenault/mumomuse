@@ -1,7 +1,6 @@
+import argparse
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
-from optparse import OptionParser
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -10,21 +9,17 @@ import loader
 import autoencod
 import utils
 
-# CUDA for Pytorch
-use_cuda = torch.cuda.is_available()
-device = torch.device("cuda:0" if use_cuda else "cpu")
-torch.backends.cudnn.benchmark = True
-
 #%% train and test definition
-def train_AE(model, MODE, train_loader, optimizer, criterion, epoch):
+def train_AE(model, MODE, train_loader, optimizer, criterion, epoch, device):
     """ Training method for auto-encoders.
     Args :
-        - model (nn.Module) : autoencoder model to train.
-        - mode (MIDI_AE or AUDIO_AE) : midi or train auto-encoder train.
-        - train_loader (Dataloader) : Dataloader of the train set.
-        - optimizer (torch.optim) : optimization method.
-        - criterion (nn.Functional) : loss function.
-        - epoch (int) : training iteration number.
+        - model (nn.Module): autoencoder model to train.
+        - mode (MIDI_AE or AUDIO_AE): midi or train auto-encoder train.
+        - train_loader (Dataloader): Dataloader of the train set.
+        - optimizer (torch.optim): optimization method.
+        - criterion (nn.Functional): loss function.
+        - epoch (int): training iteration number.
+        - device (cuda.device): cpu or gpu device.
     """
     model.train()
     k = 0
@@ -48,7 +43,7 @@ def train_AE(model, MODE, train_loader, optimizer, criterion, epoch):
     return None
 
 
-def eval_AE(model, MODE, test_loader, criterion, writer, epoch):
+def eval_AE(model, MODE, test_loader, criterion, writer, epoch, device):
     """ Testing method for autoencoders.
     Args :
         - model (nn.Module) : autoencoder model to test.
@@ -57,6 +52,7 @@ def eval_AE(model, MODE, test_loader, criterion, writer, epoch):
         - criterion (nn.Functional) : loss function.
         - writer (SummaryWriter) : for data log.
         - epoch (int) : testing iteration number.
+        - device (cuda.device): cpu or gpu device.
     Output :
         - test_loss (loss) : computed loss value.
     """
@@ -77,22 +73,14 @@ def eval_AE(model, MODE, test_loader, criterion, writer, epoch):
     
     target = data.squeeze(0)
     img = output.squeeze(0)
-    writer.add_image('epoch' + str(epoch) + ' original', target, epoch)
-    writer.add_image('epoch' + str(epoch) + ' reconstructed', img, epoch)
-    
-    # instant log
-    plt.imshow(target.squeeze(0))
-    plt.title('Target')
-    plt.show()
-    plt.imshow(img.squeeze(0))
-    plt.title('Reconstructed')
-    plt.show()
+    writer.add_image('epoch' + str(epoch) + '_original', target, epoch)
+    writer.add_image('epoch' + str(epoch) + '_reconstructed', img, epoch)
     
     return test_loss
 
 
 
-def train_multimodal(model, train_loader, optimizer, criterion, epoch):
+def train_multimodal(model, train_loader, optimizer, criterion, epoch, device):
     """ Training method for multimodal network.
     Args :
         - model (nn.Module) : model to train.
@@ -100,6 +88,7 @@ def train_multimodal(model, train_loader, optimizer, criterion, epoch):
         - optimizer (optim) : optimization method.
         - criterion (nn.Module) : loss function.
         - epoch (int) : training iteration number.
+        - device (cuda.device): cpu or gpu device.
     """
     model.train()
     k = 0
@@ -107,7 +96,7 @@ def train_multimodal(model, train_loader, optimizer, criterion, epoch):
         try:
             # batch generation
             anti_audios = utils.batch_except(train_loader.dataset,
-                                             batch_labels, 49)
+                                             batch_labels, 99)
             # to device
             batch_midi  = batch_midi.to(device)
             batch_audio = batch_audio.to(device)
@@ -118,6 +107,7 @@ def train_multimodal(model, train_loader, optimizer, criterion, epoch):
             emb_anti_audios = model.g(anti_audios)
             # compute loss
             loss = criterion(emb_midi, emb_audio, emb_anti_audios)
+            print(loss)
             # backward
             optimizer.zero_grad()
             loss.backward()
@@ -132,11 +122,11 @@ def train_multimodal(model, train_loader, optimizer, criterion, epoch):
             print('KeyError')
             pass
         
-        if k%5 == 0:
-            print("Trained with", k, "snippets.")
+        if k%10 == 0:
+            print("Trained with", k, "snippet batches.")
     return None
 
-def eval_multimodal(model, loader, criterion, epoch, writer, set_name):
+def eval_multimodal(model, loader, criterion, epoch, writer, set_name, device):
     """ Testing method for multimodal network.
     Args :
         - model (nn.Module) : model to train.
@@ -144,12 +134,13 @@ def eval_multimodal(model, loader, criterion, epoch, writer, set_name):
         - criterion (nn.Module) : loss function.
         - epoch (int) : training iteration number.
         - writer (Summarywriter) : for datalog.
-        - set_name (string) : 
+        - set_name (string) : step label for tensorboard monitoring.
+        - device (cuda.device): cpu or gpu device.
     Output :
         - test_loss (loss) : computed loss value.
     """
     model.eval()
-    loss = 0
+    eval_loss = 0
     with torch.no_grad():
         midi_mat  = torch.zeros(1, 32)
         audio_mat = torch.zeros(1, 32)
@@ -159,7 +150,7 @@ def eval_multimodal(model, loader, criterion, epoch, writer, set_name):
             try:
                 # batch generation
                 anti_audios = utils.batch_except(loader.dataset,
-                                                 batch_labels, 49)
+                                                 batch_labels, 99)
                 # to device
                 batch_midi  = batch_midi.to(device)
                 batch_audio = batch_audio.to(device)
@@ -170,14 +161,14 @@ def eval_multimodal(model, loader, criterion, epoch, writer, set_name):
                 emb_anti_audios = model.g(anti_audios)
 
                 # compute loss
-                loss += criterion(emb_midi, emb_audio, emb_anti_audios)
+                eval_loss += criterion(emb_midi, emb_audio, emb_anti_audios)
                 
                 # add to metadata
-                midi_mat = torch.cat((midi_mat, emb_midi), 0)
+                midi_mat  = torch.cat((midi_mat, emb_midi), 0)
                 audio_mat = torch.cat((audio_mat, emb_audio), 0)
                 
                 for label in batch_labels:
-                    midi_metadata.append( label + '_midi')
+                    midi_metadata.append(label + '_midi')
                     audio_metadata.append(label + '_audio')
             
             except FileNotFoundError:
@@ -192,27 +183,36 @@ def eval_multimodal(model, loader, criterion, epoch, writer, set_name):
         
         writer.add_embedding(mat, metadata=metadata, global_step=epoch)
             
-    loss /= len(loader.dataset)
-    writer.add_scalar(set_name + ' loss', loss, epoch)
+    eval_loss /= len(loader.dataset)
+    writer.add_scalar(set_name + ' loss', eval_loss, epoch)
     
-    return loss
+    return eval_loss
 #%% whole main process
 def main(DatasetPATH='nottingham-dataset-master',
-         MODE='MUMOMUSE',
-         pretrained_model=None,
+         GPU_ID='0',
          dataset_reduced_to=None,
-         num_epochs=15):
+         pretrained_model=None,
+         MODE='MUMOMUSE',
+         num_epochs=20,
+         batch_size=1
+         ):
     """ Main training function.
     Args:
         - DatasetPATH (str): name of the dataset containing MIDI and AUDIO raw files folder.
+        - GPU_ID (str) : ID of the GPU used for training acceleration.
         - MODE ('MUMOMUSE', 'MIDI_AE', 'AUDIO_AE'): train multimodal model, midi auto-encoder, or audio auto-encoder.
         - pretrained_model (path): resume training from the given model state.
         - dataset_reduced_to (int): reduce the dataset for small training. None for no dataset reduction.
     """
+    # CUDA for Pytorch
+    use_cuda = torch.cuda.is_available()
+    device = torch.device("cuda:" + GPU_ID if use_cuda else "cpu")
+    torch.backends.cudnn.benchmark = True
+    
     dataset_reduced_to = 320 
     MODE = 'MUMOMUSE' # 'AUDIO_AE', 'MIDI_AE'
 
-    # Snippet Dataset construction 
+    ### Snippet Dataset construction ###
     midi_dataset  = datasets.Snippets('db/splitMIDI')
     audio_dataset = datasets.Snippets('db/splitAUDIO')
 
@@ -232,7 +232,7 @@ def main(DatasetPATH='nottingham-dataset-master',
         
     pairs_dataset = datasets.PairSnippets(midi_dataset, audio_dataset)
 
-    # Train-validation-test split
+    ### Train-validation-test split ###
     set_size = len(pairs_dataset)
 
     # dataset reduction
@@ -255,18 +255,13 @@ def main(DatasetPATH='nottingham-dataset-master',
             train_set,
             [train_size - valid_size, valid_size])
     
-    
-    train_loader = DataLoader(train_set, batch_size=30)
+    train_loader = DataLoader(train_set, batch_size=batch_size)
     valid_loader = DataLoader(valid_set, batch_size=1)
     test_loader  = DataLoader(test_set,  batch_size=1)
-
+    
     # Optimization definition
-    
-    
     if MODE == 'MUMOMUSE':
         model = autoencod.multimodal()
-        if pretrained_model:
-            model.load_state_dict(torch.load(pretrained_model))
         criterion = utils.pairwise_ranking_objective()
     else:
         if MODE == 'MIDI_AE':
@@ -275,12 +270,17 @@ def main(DatasetPATH='nottingham-dataset-master',
             model = autoencod.audio_AE()
         criterion = nn.functional.mse_loss
     
+    if pretrained_model:
+        model.load_state_dict(torch.load(pretrained_model))
+    if use_cuda:
+        model.cuda(device=device)
+    
     # optimization definitinon
     learning_rate = 2e-3
     optimizer = torch.optim.Adam(model.parameters(),
                                  lr=learning_rate,
                                  weight_decay=1e-5)
-
+    
     # Training
     writer = SummaryWriter()
     
@@ -288,22 +288,27 @@ def main(DatasetPATH='nottingham-dataset-master',
         print('epoch [{}], training...'.format(epoch+1))
         
         if MODE == 'MUMOMUSE':
-            train_multimodal(model, train_loader, optimizer, criterion, epoch)
+            train_multimodal(model, train_loader, 
+                             optimizer, criterion, epoch, device)
             print('epoch [{}], end of training. Now evaluating...'.format(
                     epoch+1))
             train_loss = eval_multimodal(model, train_loader, criterion, 
-                                         epoch, writer, "Train")
+                                         epoch, writer, "Train", device)
             test_loss  = eval_multimodal(model, valid_loader, criterion,
-                                         epoch, writer, "Validation")
+                                         epoch, writer, "Validation", device)
             print('epoch [{}]: train loss: {:.4f}, evaluation loss: {:.4f}'.format(
                     epoch+1, train_loss.data.item(), test_loss.data.item()))
             
         else: # autoencoder train
-            train_AE(model, MODE, train_loader, criterion, optimizer, epoch)
+            train_AE(model, MODE, train_loader,
+                     criterion, optimizer, epoch, device)
             print('epoch [{}], end of training.'.format(epoch+1))
-            loss = eval_AE(model, MODE, test_loader, criterion, writer, epoch)
-            print('epoch [{}], validation loss: {:.4f}'.format(epoch+1, loss.data.item()))
-    
+            
+            loss = eval_AE(model, MODE, test_loader,
+                           criterion, writer, epoch, device)
+            print('epoch [{}], validation loss: {:.4f}'.format(
+                    epoch+1,
+                    loss.data.item()))
     # Testing
     print("Now testing...")
     if MODE == 'MUMOMUSE':
@@ -322,33 +327,48 @@ def main(DatasetPATH='nottingham-dataset-master',
         torch.save(model.state_dict(), './models/midi_AE2.pth')
     else: # 'AUDIO_AE'
         torch.save(model.state_dict(), './models/audio_AE3.pth')
-#%%
-main()
+
+
 #%% main call
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Train a model with given dataset.')
     
-	parser = OptionParser("usage: %prog [options] <path to database>")
-
-	parser.add_option("-e", "--epochs", type="int",
-	                  help="Number of Epochs",
-	                  dest="epochs", default=20)
-
-	parser.add_option("-g", "--gpu", type="int",
-	                  help="ID of the GPU, run in CPU by default.", 
-	                  dest="gpu")
-
-	parser.add_option("-o", "--outPath", type="string",
-	                  help="Path for the temporary folder.", 
-	                  dest="outPath", default="OUT/")
-
-	parser.add_option("-l", "--learning_rate", type="float",
-	                  help="Value of the starting learning rate", 
-	                  dest="learning_rate", default=1e-2)
-
-	options, arguments = parser.parse_args()
-	
-	if len(arguments) == 1:
-		main(arguments[0], EPOCHS=options.epochs, gpu=options.gpu,outPath=options.outPath, learning_rate=options.learning_rate)
-
-	else:
-		parser.error("You have to specify the path of the database.")
+    parser.add_argument('-data', '--dataset', default='nottingham-dataset-master',
+                        type=str,
+                        help='Dataset name in db folder', dest='dataset')
+    
+    parser.add_argument('-gpu', default='0', type=str, 
+                        help='GPU ID.', dest='GPU_ID')
+    
+    parser.add_argument('-r', '--reduce', default=None, type=int,
+                        help='Dataset length reduction to.', dest='reduce')
+    
+    parser.add_argument('-t', '--trained', default=None, type=str,
+                        help='Pretrained model path.', dest='pretrained')
+    
+    parser.add_argument('-m', '--mode', 
+                        default='MUMOMUSE', type=str,
+                        help='Model type to be trained ("MUMOMUSE", "AUDIO_AE" or "MIDI_AE").',
+                        dest='mode')
+    
+    parser.add_argument('-e', '--epochs', default=20, type=int,
+                        help='Number of epochs.', dest='num_epochs')
+    
+    parser.add_argument('-b', '--batch', default=1, type=int,
+                        help='Batch size', dest='batch')
+    
+    options = parser.parse_args()
+    
+    print("dataset:", options.dataset, "\n GPU ID:", options.GPU_ID,
+          "\n mode:", options.mode, "\n pretrained:", options.pretrained, 
+          "\n reduction:", options.reduce, "\n nb epochs:", options.num_epochs,
+          "\n batch size:", options.batch)
+    
+    main(DatasetPATH=options.dataset,
+         GPU_ID=options.GPU_ID,
+         dataset_reduced_to=options.reduce,
+         pretrained_model=options.pretrained,
+         MODE=options.mode,
+         num_epochs=options.num_epochs,
+         batch_size=options.batch
+         )
