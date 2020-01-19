@@ -7,9 +7,9 @@ mkdir splitAUDIO
 mkdir splitMIDI
 cd ..
 
-python3 -m pip install torch torchvision
-python3 -m pip install pretty_midi
-python3 -m pip install tensorboard
+pip install torch torchvision
+pip install tensorboard
+pip install pretty_midi
 # torchaudio install
 apt-get install sox libsox-dev libsox-fmt-all
-python 3 -m pip install git+git://github.com/pytorch/audio
+pip install git+git://github.com/pytorch/audio

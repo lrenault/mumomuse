@@ -4,8 +4,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-import datasets
-import loader
+import snippets
 import autoencod
 import utils
 
@@ -183,8 +182,12 @@ def eval_multimodal(model, loader, criterion, epoch, writer, set_name, device):
     writer.add_scalar(set_name + ' loss', eval_loss, epoch)
 
     return eval_loss
+
+
+
 #%% whole main process
-def main(DatasetPATH='nottingham-dataset-master',
+def main(midi_snippets_path='db/splitMIDI',
+         audio_snippets_path='db/splitAUDIO',
          GPU_ID='0',
          dataset_reduced_to=None,
          pretrained_model=None,
@@ -194,7 +197,8 @@ def main(DatasetPATH='nottingham-dataset-master',
          ):
     """ Main training function.
     Args:
-        - DatasetPATH (str): name of the dataset containing MIDI and AUDIO raw files folder.
+        - midi_snippets_path (path): path to the folder containing the midi snippets.
+        - audio_snippets_path (path): path to the folder containing the audio snippets.
         - GPU_ID (str) : ID of the GPU used for training acceleration.
         - MODE ('MUMOMUSE', 'MIDI_AE', 'AUDIO_AE'): train multimodal model, midi auto-encoder, or audio auto-encoder.
         - pretrained_model (path): resume training from the given model state.
@@ -206,27 +210,26 @@ def main(DatasetPATH='nottingham-dataset-master',
     torch.backends.cudnn.benchmark = True
 
     ### Snippet Dataset construction ###
-    midi_dataset  = datasets.Snippets('db/splitMIDI')
-    audio_dataset = datasets.Snippets('db/splitAUDIO')
-
-    midi_loader  = loader.MIDILoader()
-    audio_loader = loader.AudioLoader()
+    midi_dataset  = snippets.Snippets(midi_snippets_path)
+    audio_dataset = snippets.Snippets(audio_snippets_path)
 
     # generate snippets from raw data if snippet folder is empty
     if len(midi_dataset) == 0:
-        MIDIpath = 'db/' + DatasetPATH + '/MIDI'
-        midi_loader.split_and_export_dataset(MIDIpath)
-        midi_dataset = datasets.Snippets('db/splitMIDI')
+        print("MIDI folder is empty of snippet!")
+        raise
 
     if len(audio_dataset) == 0:
-        audiopath = 'db/' + DatasetPATH + '/AUDIO'
-        audio_loader.split_and_export_dataset(audiopath)
-        audio_dataset = datasets.Snippets('db/splitAUDIO')
+        print("Audio folder is empty of snippet!")
+        raise
 
-    pairs_dataset = datasets.PairSnippets(midi_dataset, audio_dataset)
+    pairs_dataset = snippets.PairSnippets(midi_dataset, audio_dataset)
 
     ### Train-validation-test split ###
     set_size = len(pairs_dataset)
+    
+    if set_size == 0:
+        print("No common labels in audio and midi snippets folders!")
+        raise
 
     # dataset reduction
     if dataset_reduced_to:
@@ -286,7 +289,7 @@ def main(DatasetPATH='nottingham-dataset-master',
                                          epoch, writer, "Train", device)
             test_loss  = eval_multimodal(model, valid_loader, criterion,
                                          epoch, writer, "Validation", device)
-            print('epoch [{}]: train loss: {:.4f}, evaluation loss: {:.4f}'.format(
+            print('epoch [{}]: train loss: {:.4f}, validation loss: {:.4f}'.format(
                     epoch+1, train_loss.data.item(), test_loss.data.item()))
             
         else: # autoencoder train
@@ -328,9 +331,15 @@ def main(DatasetPATH='nottingham-dataset-master',
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train a model with given dataset.')
 
-    parser.add_argument('-data', '--dataset', default='nottingham-dataset-master',
+    parser.add_argument('-midi', '--midiPATH', default='db/splitMIDI',
                         type=str,
-                        help='Dataset name in db folder', dest='dataset')
+                        help='Folder containing the midi snippets',
+                        dest='midiPATH')
+    
+    parser.add_argument('-audio', '--audioPATH', default='db/splitAUDIO',
+                        type=str,
+                        help='Folder containing the audio snippets',
+                        dest='audioPATH')
 
     parser.add_argument('-gpu', default='0', type=str,
                         help='GPU ID.', dest='GPU_ID')
@@ -354,12 +363,16 @@ if __name__ == "__main__":
 
     options = parser.parse_args()
 
-    print("dataset:", options.dataset, "\n GPU ID:", options.GPU_ID,
-          "\n mode:", options.mode, "\n pretrained:", options.pretrained,
-          "\n reduction:", options.reduce, "\n nb epochs:", options.num_epochs,
+    print("MIDI snippets:", options.midiPATH,", Audio snippets:", options.audioPATH,
+          "\n GPU ID:", options.GPU_ID,
+          "\n mode:", options.mode,
+          "\n pretrained:", options.pretrained,
+          "\n reduction:", options.reduce,
+          "\n nb epochs:", options.num_epochs,
           "\n batch size:", options.batch)
 
-    main(DatasetPATH=options.dataset,
+    main(midi_snippets_path=options.midiPATH,
+         audio_snippets_path=options.audioPATH,
          GPU_ID=options.GPU_ID,
          dataset_reduced_to=options.reduce,
          pretrained_model=options.pretrained,

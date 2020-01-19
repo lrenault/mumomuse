@@ -61,7 +61,7 @@ class AudioLoader():
         return loader
 
     def split_and_export(self, spectro, name, max_time=42, 
-                         export_dir='db/splitAUDIO/'):
+                         export_dir='db/splitAUDIO'):
         """
         Splits a spectrogram  into tensors corresponding to audio snippets from the input. 
         Args:
@@ -75,11 +75,11 @@ class AudioLoader():
         
         for i in range(n_snips):
             snip = spectro[:, :, i*max_time : (i + 1) * max_time]
-            torch.save(snip, export_dir + name + '_' + str(i) + '.pt')    
+            torch.save(snip, export_dir + '/' + name + '_' + str(i) + '.pt')    
         return None
     
     def split_and_export_dataset(self, root, max_time=42,
-                                 export_dir='db/splitAUDIO/'):
+                                 export_dir='db/splitAUDIO'):
         """
         Import an audio dataset, transform, split and exports its files into inputtable tensors.
         Args:
@@ -208,9 +208,8 @@ class MIDILoader():
         loader = DataLoader(dataset, batch_size=batch_size)
         return loader
     
-    def split_and_export(self, midi,
-                         music_name, max_time_bin=42,
-                         export_dir='db/splitMIDI/'):
+    def split_and_export(self, midi, music_name, max_time_bin=42,
+                         export_dir='db/splitMIDI'):
         """
         Args:
             - midi (tensor) : midi tensor to split.
@@ -223,18 +222,18 @@ class MIDILoader():
         
         for i in range (nb_snippets):
             snippet = midi[:, :, i * max_time_bin : (i + 1) * max_time_bin]
-            torch.save(snippet, export_dir + music_name + '_' + str(i) + '.pt')   
+            torch.save(snippet, export_dir + '/' + music_name + '_' + str(i) + '.pt')   
         return None
     
-    def split_and_export_dataset(self, root_dir, stackInstruments=True,
-                                 max_time_bin=42, export_dir='db/splitMIDI/'):
+    def split_and_export_dataset(self, root_dir, export_dir='db/splitMIDI',
+                                 stackInstruments=True, max_time_bin=42):
         """
         Import a MIDI dataset, transform, split and exports its files into inputtable tensors.
         Args:
             - root_dir (string) : folder containing raw midi files.
+            - export_dir (string) : export folder path.
             - stackInstruments (bool): if True, stack all instruments into 1 pianoroll.
             - max_time_bin (int) : maximum time bin for exported piano roll tensors.
-            - export_dir (string) : export folder path.
         """
         midi_loader = self.loader(root_dir, batch_size=1, stackInstruments=stackInstruments)
         print("Splitting MIDI dataset...")
