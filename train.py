@@ -273,40 +273,35 @@ def main(DatasetPATH='nottingham-dataset-master',
 
     # Training
     writer = SummaryWriter()
-
-    try:
-        for epoch in range(num_epochs):
-            print('epoch [{}], training...'.format(epoch+1))
-
-            if MODE == 'MUMOMUSE':
-                train_multimodal(model, train_loader,
-                                 optimizer, criterion, epoch, device)
-                print('epoch [{}], end of training. Now evaluating...'.format(
-                      epoch+1))
-                train_loss = eval_multimodal(model, train_loader, criterion,
-                                            epoch, writer, "Train", device)
-                test_loss  = eval_multimodal(model, valid_loader, criterion,
-                                            epoch, writer, "Validation", device)
-                print('epoch [{}]: train loss: {:.4f}, evaluation loss: {:.4f}'.format(
-                      epoch+1, train_loss.data.item(), test_loss.data.item()))
-
-            else: # autoencoder train
-                train_AE(model, MODE, train_loader,
-                        criterion, optimizer, epoch, device)
-                print('epoch [{}], end of training.'.format(epoch+1))
-
-                loss = eval_AE(model, MODE, test_loader,
-                           criterion, writer, epoch, device)
-                print('epoch [{}], validation loss: {:.4f}'.format(epoch+1,
-                      loss.data.item()))
-
-    except KeyboardInterrupt:
+    
+    for epoch in range(num_epochs):
+        print('epoch [{}], training...'.format(epoch+1))
+        
         if MODE == 'MUMOMUSE':
-            torch.save(model.state_dict(), './models/multimodal_WIP.pth')
-        elif MODE == 'MIDI_AE':
-            torch.save(model.state_dict(), './models/midi_WIP.pth')
-        else: # 'AUDIO_AE'
-            torch.save(model.state_dict(), './models/audio_WIP.pth')
+            train_multimodal(model, train_loader,
+                             optimizer, criterion, epoch, device)
+            print('epoch [{}], end of training. Now evaluating...'.format(
+                    epoch+1))
+            train_loss = eval_multimodal(model, train_loader, criterion,
+                                         epoch, writer, "Train", device)
+            test_loss  = eval_multimodal(model, valid_loader, criterion,
+                                         epoch, writer, "Validation", device)
+            print('epoch [{}]: train loss: {:.4f}, evaluation loss: {:.4f}'.format(
+                    epoch+1, train_loss.data.item(), test_loss.data.item()))
+            
+        else: # autoencoder train
+            train_AE(model, MODE, train_loader,
+                     criterion, optimizer, epoch, device)
+            print('epoch [{}], end of training.'.format(epoch+1))
+            
+            loss = eval_AE(model, MODE, test_loader,
+                           criterion, writer, epoch, device)
+            print('epoch [{}], validation loss: {:.4f}'.format(epoch+1,
+                  loss.data.item()))
+            
+        torch.save(model.state_dict(), '../temp/model_epoch' + str(epoch) + 'pth')
+        print('Model saved')
+        
     # Testing
     print("Now testing...")
     if MODE == 'MUMOMUSE':
