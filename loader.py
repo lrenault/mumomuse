@@ -61,7 +61,7 @@ class AudioLoader():
         return loader
 
     def split_and_export(self, spectro, name, max_time=42, 
-                         export_dir='db/splitAUDIO/'):
+                         export_dir='db/splitAUDIO'):
         """
         Splits a spectrogram  into tensors corresponding to audio snippets from the input. 
         Args:
@@ -75,11 +75,11 @@ class AudioLoader():
         
         for i in range(n_snips):
             snip = spectro[:, :, i*max_time : (i + 1) * max_time]
-            torch.save(snip, export_dir + name + '_' + str(i) + '.pt')    
+            torch.save(snip, export_dir + '/' + name + '_' + str(i) + '.pt')    
         return None
     
     def split_and_export_dataset(self, root, max_time=42,
-                                 export_dir='db/splitAUDIO/'):
+                                 export_dir='db/splitAUDIO'):
         """
         Import an audio dataset, transform, split and exports its files into inputtable tensors.
         Args:
@@ -88,11 +88,12 @@ class AudioLoader():
             - export_dir (string) : export folder path.
         """
         audio_loader = self.loader(root, batch_size=1)
+        print("Splitting Audio dataset...")
         for spectro, name in audio_loader:
-            self.split_and_export(spectro.squeeze(0), name[0], 
+            self.split_and_export(spectro.squeeze(0), name[0],
                                   max_time=max_time,
                                   export_dir=export_dir)
-            print(name, 'splitted and exported.')
+        print('Audio dataset splitted and exported.')
         return None
         
     def audio_snippets_loader(self, batch_size=1, root_dir='db/splitAUDIO/'):
@@ -131,9 +132,12 @@ class AudioLoader():
     
     
 class MIDILoader():
-    '''MIDI file loader'''
+    '''MIDI files loader class
+        Attributes :
+            - preproc_stack (transforms) : pre-processing transformations to stack instruments into 1 channel.
+            - preproc_unstack (transforms) : pre-processing transformations while keeping instruments into different channels.
+    '''
     def __init__(self):
-        #self.frame_rate = 21.80
         self.preproc_stack = transforms.Compose([
                 lambda x: self.get_PianoRoll(x),
                 ])
@@ -146,6 +150,8 @@ class MIDILoader():
         Args:
             - midi (pretty_midi) : midi data.
             - stack (bool) : if True, stack all insturment into 1 piano roll.
+        Out:
+            data (C, 128, L_audio) : piano roll of the midi file.
         """
         nb_instru = 0
         length = 0
@@ -202,9 +208,8 @@ class MIDILoader():
         loader = DataLoader(dataset, batch_size=batch_size)
         return loader
     
-    def split_and_export(self, midi,
-                         music_name, max_time_bin=42,
-                         export_dir='db/splitMIDI/'):
+    def split_and_export(self, midi, music_name, max_time_bin=42,
+                         export_dir='db/splitMIDI'):
         """
         Args:
             - midi (tensor) : midi tensor to split.
@@ -217,25 +222,27 @@ class MIDILoader():
         
         for i in range (nb_snippets):
             snippet = midi[:, :, i * max_time_bin : (i + 1) * max_time_bin]
-            torch.save(snippet, export_dir + music_name + '_' + str(i) + '.pt')   
+            torch.save(snippet, export_dir + '/' + music_name + '_' + str(i) + '.pt')   
         return None
     
-    def split_and_export_dataset(self, root_dir, stackInstruments=True,
-                                 max_time_bin=42, export_dir='db/splitMIDI/'):
+    def split_and_export_dataset(self, root_dir, export_dir='db/splitMIDI',
+                                 stackInstruments=True, max_time_bin=42):
         """
         Import a MIDI dataset, transform, split and exports its files into inputtable tensors.
         Args:
             - root_dir (string) : folder containing raw midi files.
+            - export_dir (string) : export folder path.
             - stackInstruments (bool): if True, stack all instruments into 1 pianoroll.
             - max_time_bin (int) : maximum time bin for exported piano roll tensors.
-            - export_dir (string) : export folder path.
         """
         midi_loader = self.loader(root_dir, batch_size=1, stackInstruments=stackInstruments)
+        print("Splitting MIDI dataset...")
+        
         for midi, music_name in midi_loader:
             self.split_and_export(midi.squeeze(0), music_name[0], 
                                   max_time_bin=max_time_bin,
-                                  export_dir=export_dir)
-            print(music_name, 'splitted and exported.')
+                                  export_dir=export_dir)        
+        print("MIDI dataset splitted and exported.")
         return None
         
     def midi_snippets_loader(self, batch_size=1, shuffle=False, root_dir='db/splitMIDI'):
@@ -243,3 +250,34 @@ class MIDILoader():
         dataset = datasets.Snippets(root_dir)
         loader  = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
         return loader
+
+
+
+def get_dictionnary(midi_dataset, audio_dataset):
+    """Construct the dictionnary retrieving an audio snippets from its label.
+    Args:
+        - audio_dataset (Dataset): audio snippet dataset.
+        - midi_dataset (Dataset): corresponding midi_dataset.
+    Out:
+        - correspondance_dict (dict): audio-midi matching dictionnary.
+    """
+    music_names = audio_dataset.labels
+    idxs = list(range(len(audio_dataset)))
+
+    correspondance_dict = dict(zip(music_names, idxs))
+    '''
+    midi_loader = DataLoader(midi_dataset, batch_size=10)
+    
+    for batch_midi_snip, batch_labels in midi_loader:
+        for label in batch_labels:
+            try:
+                prout = correspondance_dict[label]
+            except KeyError:
+                print("Non-correspondance found :", label)
+                previous_label = utils.previous_label(label)
+                idxs.append(correspondance_dict[previous_label])
+                music_names.append(label)
+    correspondance_dict = dict(zip(music_names, idxs))
+    '''
+    print("Finished correspondance dictionnary construction.")
+    return correspondance_dict
