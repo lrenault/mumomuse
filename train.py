@@ -8,6 +8,8 @@ import snippets
 import autoencod
 import utils
 
+cpu = torch.device("cpu")
+
 #%% train and test definition
 def train_AE(model, MODE, train_loader, optimizer, criterion, epoch, device):
     """ Training method for auto-encoders.
@@ -135,10 +137,10 @@ def eval_multimodal(model, loader, criterion, epoch, writer, set_name, device):
     model.eval()
     eval_loss = 0
     with torch.no_grad():
-        midi_mat  = torch.zeros(1, 32)
-        audio_mat = torch.zeros(1, 32)
-        midi_img  = torch.zeros(1, 1, 128, 42)
-        audio_img = torch.zeros(1, 1, 92, 42)
+        midi_mat  = torch.zeros(1, 32).to(device)
+        audio_mat = torch.zeros(1, 32).to(device)
+        midi_img  = torch.zeros(1, 1, 128, 42).to(device)
+        audio_img = torch.zeros(1, 1, 92, 42).to(device)
         midi_metadata  = ['Zero_midi']
         audio_metadata = ['Zero_audio']
         for batch_midi, batch_audio, batch_labels in loader:
