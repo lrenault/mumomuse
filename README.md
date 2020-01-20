@@ -57,7 +57,7 @@ optional arguments:
                         Audio snippets export folder.
 ```
 
-## Network training
+## How to train your network
 
 Train a multimodal, audio auto-encoder or midi auto-encoder model using the audio and midi snippets datasets.
 
