@@ -266,8 +266,8 @@ def main(midi_snippets_path='db/splitMIDI',
             [train_size - valid_size, valid_size])
 
     train_loader = DataLoader(train_set, batch_size=batch_size)
-    valid_loader = DataLoader(valid_set, batch_size=10)
-    test_loader  = DataLoader(test_set,  batch_size=32)
+    valid_loader = DataLoader(valid_set, batch_size=batch_size // 10)
+    test_loader  = DataLoader(test_set,  batch_size=batch_size)
 
     # model definition
     if MODE == 'MUMOMUSE':
@@ -335,7 +335,7 @@ def main(midi_snippets_path='db/splitMIDI',
 
     # save model
     if MODE == 'MUMOMUSE':
-        torch.save(model.state_dict(), './models/multimodal_small4.pth')
+        torch.save(model.state_dict(), './models/multimodal_fat.pth')
     elif MODE == 'MIDI_AE':
         torch.save(model.state_dict(), './models/midi_AE2.pth')
     else: # 'AUDIO_AE'
@@ -349,22 +349,24 @@ if __name__ == "__main__":
 
     parser.add_argument('-midi', '--midiPATH', default='db/splitMIDI',
                         type=str,
-                        help='Folder containing the midi snippets',
+                        help="Folder containing the midi snippets. Default='db/splitMIDI'",
                         dest='midiPATH')
     
     parser.add_argument('-audio', '--audioPATH', default='db/splitAUDIO',
                         type=str,
-                        help='Folder containing the audio snippets',
+                        help="Folder containing the audio snippets. Default='db/splitAUDIO'",
                         dest='audioPATH')
 
     parser.add_argument('-gpu', default='0', type=str,
-                        help='GPU ID.', dest='GPU_ID')
+                        help="GPU ID. Default='0'", dest='GPU_ID')
 
     parser.add_argument('-r', '--reduce', default=None, type=int,
-                        help='Dataset length reduction to.', dest='reduce')
+                        help='Dataset length reduction to. Default=None',
+                        dest='reduce')
 
     parser.add_argument('-t', '--trained', default=None, type=str,
-                        help='Pretrained model path.', dest='pretrained')
+                        help='Pretrained model path. Default=None',
+                        dest='pretrained')
 
     parser.add_argument('-m', '--mode',
                         default='MUMOMUSE', type=str,
@@ -372,10 +374,10 @@ if __name__ == "__main__":
                         dest='mode')
 
     parser.add_argument('-e', '--epochs', default=20, type=int,
-                        help='Number of epochs.', dest='num_epochs')
+                        help='Number of epochs. Default=20', dest='num_epochs')
 
     parser.add_argument('-b', '--batch', default=1, type=int,
-                        help='Batch size', dest='batch')
+                        help='Batch size. Default=1', dest='batch')
 
     options = parser.parse_args()
 
