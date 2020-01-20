@@ -64,10 +64,10 @@ class pairwise_ranking_objective(nn.Module):
     def __init__(self, margin=0.7):
         """
         Args :
-            - margin : margin of the loss function.
+            - margin (float): margin of the loss function.
         """
         super(pairwise_ranking_objective, self).__init__()
-        self.margin = margin
+        self.margin = torch.tensor(margin)
     
     def forward(self, midi_match, audio_match, contrastive_audios):
         """
@@ -76,9 +76,21 @@ class pairwise_ranking_objective(nn.Module):
             - audio_match (1, 32) : embedding of its matching audio excerpt.
             - contrastive_audio (99, 32) : embedding of contrastive audio excerpts.
         """
-        loss = 0
+        loss = torch.zeros(1)
         for audio in torch.split(contrastive_audios, 1):
-            loss += max(0, self.margin \
-                            - torch.sum(s(midi_match, audio_match)) \
-                            + torch.sum(s(midi_match, audio)))
-        return loss    
+            loss += torch.max(torch.zeros(1),
+                              self.margin \
+                              - torch.sum(s(midi_match, audio_match)) \
+                              + torch.sum(s(midi_match, audio)))
+        return loss  
+
+def toColor(img):
+    """Colorize a 1-channel image into a 3-channels image.
+    Arg:
+        - img (N, 1, H, W): grey-scale image.
+    Out:
+        - colored (N, 3, H, W): colored image.
+    """
+    colored = torch.cat((0.5 * torch.log(img), 0.3 * torch.log(img)), 1)
+    colored = torch.cat((colored, 0.4 * torch.log(img)), 1)
+    return colored

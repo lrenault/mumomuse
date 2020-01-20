@@ -139,8 +139,10 @@ def eval_multimodal(model, loader, criterion, epoch, writer, set_name, device):
     with torch.no_grad():
         midi_mat  = torch.zeros(1, 32)
         audio_mat = torch.zeros(1, 32)
-        midi_metadata  = ['None']
-        audio_metadata = ['None']
+        midi_img  = torch.zeros(1, 1, 128, 42)
+        audio_img = torch.zeros(1, 1, 92, 42)
+        midi_metadata  = ['Zero_midi']
+        audio_metadata = ['Zero_audio']
         for batch_midi, batch_audio, batch_labels in loader:
             try:
                 # batch generation
@@ -161,6 +163,8 @@ def eval_multimodal(model, loader, criterion, epoch, writer, set_name, device):
                 # add to metadata
                 midi_mat  = torch.cat((midi_mat, emb_midi), 0)
                 audio_mat = torch.cat((audio_mat, emb_audio), 0)
+                midi_img  = torch.cat((midi_img, batch_midi), 0)
+                audio_img = torch.cat((audio_img, batch_audio), 0)
 
                 for label in batch_labels:
                     midi_metadata.append(label + '_midi')
@@ -172,11 +176,21 @@ def eval_multimodal(model, loader, criterion, epoch, writer, set_name, device):
             except KeyError:
                 print('KeyError')
                 pass
-
+        
+        # label images correction
+        audio_img = nn.ZeroPad2d((43, 43, 18, 18))(audio_img)
+        midi_img  = nn.ZeroPad2d((43, 43,  0,  0))(midi_img)
+        
+        midi_img = utils.toColor(midi_img)
+        audio_img = utils.toColor(audio_img)
+        
         mat = torch.cat((midi_mat, audio_mat), 0)
+        img = torch.cat((midi_img, audio_img), 0)
         metadata = midi_metadata + audio_metadata
-
-        writer.add_embedding(mat, metadata=metadata, global_step=epoch, tag=set_name)
+        
+        # add to writer
+        writer.add_embedding(mat, metadata=metadata, label_img=img,
+                             global_step=epoch, tag=set_name)
 
     eval_loss /= len(loader.dataset)
     writer.add_scalar(set_name + ' loss', eval_loss, epoch)
@@ -252,8 +266,8 @@ def main(midi_snippets_path='db/splitMIDI',
             [train_size - valid_size, valid_size])
 
     train_loader = DataLoader(train_set, batch_size=batch_size)
-    valid_loader = DataLoader(valid_set, batch_size=1)
-    test_loader  = DataLoader(test_set,  batch_size=1)
+    valid_loader = DataLoader(valid_set, batch_size=10)
+    test_loader  = DataLoader(test_set,  batch_size=32)
 
     # model definition
     if MODE == 'MUMOMUSE':
@@ -285,6 +299,7 @@ def main(midi_snippets_path='db/splitMIDI',
                              optimizer, criterion, epoch, device)
             print('epoch [{}], end of training. Now evaluating...'.format(
                     epoch+1))
+            train_loss = 0
             train_loss = eval_multimodal(model, train_loader, criterion,
                                          epoch, writer, "Train", device)
             test_loss  = eval_multimodal(model, valid_loader, criterion,
@@ -304,7 +319,7 @@ def main(midi_snippets_path='db/splitMIDI',
             
         torch.save(model.state_dict(), './temp/model_epoch' \
                                        + str(epoch) + '.pth')
-        print('Model saved')
+        print('Model saved.')
         
     # Testing
     print("Now testing...")
@@ -320,11 +335,12 @@ def main(midi_snippets_path='db/splitMIDI',
 
     # save model
     if MODE == 'MUMOMUSE':
-        torch.save(model.state_dict(), './models/multimodal_small3.pth')
+        torch.save(model.state_dict(), './models/multimodal_small4.pth')
     elif MODE == 'MIDI_AE':
         torch.save(model.state_dict(), './models/midi_AE2.pth')
     else: # 'AUDIO_AE'
         torch.save(model.state_dict(), './models/audio_AE3.pth')
+    print("Final model saved.")
 
 
 #%% main call
