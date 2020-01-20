@@ -69,7 +69,7 @@ class pairwise_ranking_objective(nn.Module):
         """
         super(pairwise_ranking_objective, self).__init__()
         self.device = device
-        self.margin = torch.tensor(margin)
+        self.margin = torch.tensor(margin).to(self.device)
     
     def forward(self, midi_match, audio_match, contrastive_audios):
         """
@@ -80,13 +80,10 @@ class pairwise_ranking_objective(nn.Module):
         """
         loss = torch.zeros(1).to(self.device)
         for audio in torch.split(contrastive_audios, 1):
-            print(midi_match.is_cuda)
-            print(audio_match.is_cuda)
-            print(audio.is_cuda)
             loss += torch.max(torch.zeros(1).to(self.device),
                               self.margin \
                               - torch.sum(s(midi_match, audio_match)) \
-                              + torch.sum(s(midi_match, audio.to(self.device))))
+                              + torch.sum(s(midi_match, audio)))
         return loss  
 
 def toColor(img):
