@@ -38,7 +38,7 @@ def train_AE(model, MODE, train_loader, optimizer, criterion, epoch, device):
         optimizer.step()
 
         # log
-        if k%100==0:
+        if (k % 100)==0:
             print('Trained with', k,
                   'snippets. Current loss :', loss.data.item())
     return None
@@ -263,7 +263,7 @@ def main(midi_snippets_path='db/splitMIDI',
             [train_size - valid_size, valid_size])
 
     train_loader = DataLoader(train_set, batch_size=batch_size)
-    valid_loader = DataLoader(valid_set, batch_size=batch_size // 10)
+    valid_loader = DataLoader(valid_set, batch_size=batch_size // 10 + 1)
     test_loader  = DataLoader(test_set,  batch_size=batch_size)
 
     # model definition
@@ -271,11 +271,11 @@ def main(midi_snippets_path='db/splitMIDI',
         model = autoencod.multimodal()
         criterion = utils.pairwise_ranking_objective(device=device)
     else:
+        criterion = nn.functional.mse_loss
         if MODE == 'MIDI_AE':
             model = autoencod.midi_AE()
         else: # 'AUDIO_AE'
             model = autoencod.audio_AE()
-        criterion = nn.functional.mse_loss
 
     if pretrained_model:
         model.load_state_dict(torch.load(pretrained_model))
@@ -305,14 +305,14 @@ def main(midi_snippets_path='db/splitMIDI',
                     epoch+1, train_loss.data.item(), test_loss.data.item()))
             
         else: # autoencoder train
-            train_AE(model, MODE, train_loader,
-                     criterion, optimizer, epoch, device)
+            train_AE(model, MODE, train_loader, optimizer, criterion,
+                     epoch, device)
             print('epoch [{}], end of training.'.format(epoch+1))
             
             loss = eval_AE(model, MODE, test_loader,
                            criterion, writer, epoch, device)
             print('epoch [{}], validation loss: {:.4f}'.format(epoch+1,
-                  loss.data.item()))
+                  loss))
             
         torch.save(model.state_dict(), './temp/model_epoch' \
                                        + str(epoch) + '.pth')
