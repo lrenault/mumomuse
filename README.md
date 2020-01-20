@@ -134,4 +134,4 @@ This project is open-source.
 
 ## Acknowledgments
 
-* PhD student Mathieu Prang and Associate Professor Philippe Esling, from the ACIDS team of IRCAM, for their help 
+* PhD student Mathieu Prang and Associate Professor Philippe Esling, from the ACIDS team of IRCAM, for their help and advices given during this project.
