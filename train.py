@@ -8,6 +8,8 @@ import snippets
 import autoencod
 import utils
 
+cpu = torch.device("cpu")
+
 #%% train and test definition
 def train_AE(model, MODE, train_loader, optimizer, criterion, epoch, device):
     """ Training method for auto-encoders.
@@ -36,7 +38,7 @@ def train_AE(model, MODE, train_loader, optimizer, criterion, epoch, device):
         optimizer.step()
 
         # log
-        if k%100==0:
+        if (k % 100)==0:
             print('Trained with', k,
                   'snippets. Current loss :', loss.data.item())
     return None
@@ -111,9 +113,7 @@ def train_multimodal(model, train_loader, optimizer, criterion, epoch, device):
             optimizer.step()
 
             k += 1
-        except FileNotFoundError:
-            print('FileNotFoundError')
-
+            
         except KeyError:
             print('KeyError')
 
@@ -137,10 +137,12 @@ def eval_multimodal(model, loader, criterion, epoch, writer, set_name, device):
     model.eval()
     eval_loss = 0
     with torch.no_grad():
-        midi_mat  = torch.zeros(1, 32)
-        audio_mat = torch.zeros(1, 32)
-        midi_metadata  = ['None']
-        audio_metadata = ['None']
+        midi_mat  = torch.zeros(1, 32).to(device)
+        audio_mat = torch.zeros(1, 32).to(device)
+        midi_img  = torch.zeros(1, 1, 128, 42).to(device)
+        audio_img = torch.zeros(1, 1, 92, 42).to(device)
+        midi_metadata  = ['Zero_midi']
+        audio_metadata = ['Zero_audio']
         for batch_midi, batch_audio, batch_labels in loader:
             try:
                 # batch generation
@@ -161,22 +163,31 @@ def eval_multimodal(model, loader, criterion, epoch, writer, set_name, device):
                 # add to metadata
                 midi_mat  = torch.cat((midi_mat, emb_midi), 0)
                 audio_mat = torch.cat((audio_mat, emb_audio), 0)
+                midi_img  = torch.cat((midi_img, batch_midi), 0)
+                audio_img = torch.cat((audio_img, batch_audio), 0)
 
                 for label in batch_labels:
                     midi_metadata.append(label + '_midi')
                     audio_metadata.append(label + '_audio')
-
-            except FileNotFoundError:
-                print('FileNotFoundError')
-                pass
+                
             except KeyError:
                 print('KeyError')
                 pass
-
+        
+        # label images correction
+        audio_img = nn.ZeroPad2d((43, 43, 18, 18))(audio_img)
+        midi_img  = nn.ZeroPad2d((43, 43,  0,  0))(midi_img)
+        
+        midi_img = utils.toColor(midi_img)
+        audio_img = utils.toColor(audio_img)
+        
         mat = torch.cat((midi_mat, audio_mat), 0)
+        img = torch.cat((midi_img, audio_img), 0)
         metadata = midi_metadata + audio_metadata
-
-        writer.add_embedding(mat, metadata=metadata, global_step=epoch, tag=set_name)
+        
+        # add to writer
+        writer.add_embedding(mat, metadata=metadata, label_img=img,
+                             global_step=epoch, tag=set_name)
 
     eval_loss /= len(loader.dataset)
     writer.add_scalar(set_name + ' loss', eval_loss, epoch)
@@ -233,7 +244,7 @@ def main(midi_snippets_path='db/splitMIDI',
 
     # dataset reduction
     if dataset_reduced_to:
-        used_dataset, leftlovers = torch.utils.data.random_split(
+        pairs_dataset, leftlovers = torch.utils.data.random_split(
                 pairs_dataset,
                 [dataset_reduced_to, set_size - dataset_reduced_to])
         set_size = dataset_reduced_to
@@ -242,7 +253,7 @@ def main(midi_snippets_path='db/splitMIDI',
     train_size = int(set_size * 0.8)
 
     train_set, test_set = torch.utils.data.random_split(
-            used_dataset,
+            pairs_dataset,
             [train_size, set_size - train_size])
 
     # train-validation split
@@ -252,19 +263,19 @@ def main(midi_snippets_path='db/splitMIDI',
             [train_size - valid_size, valid_size])
 
     train_loader = DataLoader(train_set, batch_size=batch_size)
-    valid_loader = DataLoader(valid_set, batch_size=1)
-    test_loader  = DataLoader(test_set,  batch_size=1)
+    valid_loader = DataLoader(valid_set, batch_size=batch_size // 10 + 1)
+    test_loader  = DataLoader(test_set,  batch_size=batch_size)
 
     # model definition
     if MODE == 'MUMOMUSE':
         model = autoencod.multimodal()
-        criterion = utils.pairwise_ranking_objective()
+        criterion = utils.pairwise_ranking_objective(device=device)
     else:
+        criterion = nn.functional.mse_loss
         if MODE == 'MIDI_AE':
             model = autoencod.midi_AE()
         else: # 'AUDIO_AE'
             model = autoencod.audio_AE()
-        criterion = nn.functional.mse_loss
 
     if pretrained_model:
         model.load_state_dict(torch.load(pretrained_model))
@@ -285,6 +296,7 @@ def main(midi_snippets_path='db/splitMIDI',
                              optimizer, criterion, epoch, device)
             print('epoch [{}], end of training. Now evaluating...'.format(
                     epoch+1))
+            train_loss = 0
             train_loss = eval_multimodal(model, train_loader, criterion,
                                          epoch, writer, "Train", device)
             test_loss  = eval_multimodal(model, valid_loader, criterion,
@@ -293,18 +305,18 @@ def main(midi_snippets_path='db/splitMIDI',
                     epoch+1, train_loss.data.item(), test_loss.data.item()))
             
         else: # autoencoder train
-            train_AE(model, MODE, train_loader,
-                     criterion, optimizer, epoch, device)
+            train_AE(model, MODE, train_loader, optimizer, criterion,
+                     epoch, device)
             print('epoch [{}], end of training.'.format(epoch+1))
             
             loss = eval_AE(model, MODE, test_loader,
                            criterion, writer, epoch, device)
             print('epoch [{}], validation loss: {:.4f}'.format(epoch+1,
-                  loss.data.item()))
+                  loss))
             
         torch.save(model.state_dict(), './temp/model_epoch' \
                                        + str(epoch) + '.pth')
-        print('Model saved')
+        print('Model saved.')
         
     # Testing
     print("Now testing...")
@@ -320,11 +332,12 @@ def main(midi_snippets_path='db/splitMIDI',
 
     # save model
     if MODE == 'MUMOMUSE':
-        torch.save(model.state_dict(), './models/multimodal_small3.pth')
+        torch.save(model.state_dict(), './models/multimodal_fat.pth')
     elif MODE == 'MIDI_AE':
         torch.save(model.state_dict(), './models/midi_AE2.pth')
     else: # 'AUDIO_AE'
         torch.save(model.state_dict(), './models/audio_AE3.pth')
+    print("Final model saved.")
 
 
 #%% main call
@@ -333,22 +346,24 @@ if __name__ == "__main__":
 
     parser.add_argument('-midi', '--midiPATH', default='db/splitMIDI',
                         type=str,
-                        help='Folder containing the midi snippets',
+                        help="Folder containing the midi snippets. Default='db/splitMIDI'",
                         dest='midiPATH')
     
     parser.add_argument('-audio', '--audioPATH', default='db/splitAUDIO',
                         type=str,
-                        help='Folder containing the audio snippets',
+                        help="Folder containing the audio snippets. Default='db/splitAUDIO'",
                         dest='audioPATH')
 
     parser.add_argument('-gpu', default='0', type=str,
-                        help='GPU ID.', dest='GPU_ID')
+                        help="GPU ID. Default='0'", dest='GPU_ID')
 
     parser.add_argument('-r', '--reduce', default=None, type=int,
-                        help='Dataset length reduction to.', dest='reduce')
+                        help='Dataset length reduction to. Default=None',
+                        dest='reduce')
 
     parser.add_argument('-t', '--trained', default=None, type=str,
-                        help='Pretrained model path.', dest='pretrained')
+                        help='Pretrained model path. Default=None',
+                        dest='pretrained')
 
     parser.add_argument('-m', '--mode',
                         default='MUMOMUSE', type=str,
@@ -356,10 +371,10 @@ if __name__ == "__main__":
                         dest='mode')
 
     parser.add_argument('-e', '--epochs', default=20, type=int,
-                        help='Number of epochs.', dest='num_epochs')
+                        help='Number of epochs. Default=20', dest='num_epochs')
 
     parser.add_argument('-b', '--batch', default=1, type=int,
-                        help='Batch size', dest='batch')
+                        help='Batch size. Default=1', dest='batch')
 
     options = parser.parse_args()
 

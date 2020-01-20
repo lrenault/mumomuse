@@ -40,9 +40,22 @@ mumomuse
 Preprocess the raw audio and midi files in the given datasets into splitted snippet tensors, then the snippets are stored in the given export folder.
 
 ```
-preproc.py
-```
+usage: preproc.py [-h] [-midi MIDIPATH] [-audio AUDIOPATH] [-midiTo MIDITO]
+                  [-audioTo AUDIOTO]
 
+Preprocess the given audio and midi datasets.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -midi MIDIPATH, --rawMIDI MIDIPATH
+                        Path to the raw midi dataset.
+  -audio AUDIOPATH, --rawAUDIO AUDIOPATH
+                        Path to the raw audio dataset.
+  -midiTo MIDITO, --MIDIexport MIDITO
+                        MIDI snippets export folder.
+  -audioTo AUDIOTO, --AUDIOexport AUDIOTO
+                        Audio snippets export folder.
+```
 
 ## Network training
 

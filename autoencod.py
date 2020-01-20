@@ -35,12 +35,17 @@ class audio_encoder(nn.Module):
                 nn.BatchNorm2d(32)
                 )
         
+        self.linears = nn.Sequential(
+                nn.Linear(32*5*2, 128),
+                nn.Linear(128, 32)
+                )
+        
     def forward(self, x):
         x = self.encoder(x)
+        
         x = x.view(-1, 32*5*2)
-        # FC layers
-        x = nn.Linear(32*5*2, 128)(x)
-        x = nn.Linear(128, 32)(x)
+        x = self.linears(x)
+        
         L = nn.AvgPool1d(kernel_size=1)(x.unsqueeze(1))
         L = L.squeeze(1) # delete channel dimension
         #print("Latent dimension =", L.size())
@@ -74,10 +79,14 @@ class audio_decoder(nn.Module):
                 nn.ELU(inplace=True)
                 )
         
+        self.linears = nn.Sequential(
+                nn.Linear(32, 128),
+                nn.Linear(128, 32*5*2)
+                )
+        
     def forward(self, L):
         # FC Layers
-        y = nn.Linear(32,  128)(L.unsqueeze(1))
-        y = nn.Linear(128, 32*5*2)(y)
+        y = self.linears(L.unsqueeze(1))
         
         y = y.view(1, 32, 5, 2)
         x_hat = self.decoder(y)
@@ -132,14 +141,19 @@ class midi_encoder(nn.Module):
                 nn.Conv2d(96, 32, kernel_size=1, stride=1, padding=0),
                 nn.BatchNorm2d(32)
                 )
+        
+        self.linears = nn.Sequential(
+                nn.Linear(32*8*2, 256),
+                nn.Linear(256, 128),
+                nn.Linear(128, 32)
+                )
     
     def forward(self, x):
         x = self.encoder(x)
+        
         x = x.view(-1, 32*8*2)
-        # FC layers
-        x = nn.Linear(32*8*2, 256)(x)
-        x = nn.Linear(256, 128)(x)
-        x = nn.Linear(128, 32)(x)
+        x = self.linears(x)
+        
         L = nn.AvgPool1d(kernel_size=1)(x.unsqueeze(1))
         L = L.squeeze(1)
         #print("Latent dimension =", L.size())
@@ -173,12 +187,15 @@ class midi_decoder(nn.Module):
                 
                 nn.ELU(inplace=True)
                 )
+        
+        self.linears = nn.Sequential(
+                nn.Linear(32, 128),
+                nn.Linear(128, 256),
+                nn.Linear(256, 32*8*2)
+                )
     
     def forward(self, L):
-        # FC Layers
-        y = nn.Linear(32,  128)(L.unsqueeze(1))
-        y = nn.Linear(128, 256)(y)
-        y = nn.Linear(256, 32*8*2)(y)
+        y = self.linears(L.unsqueeze(1))
         
         y = y.view(1, 32, 8, 2)
         x_hat = self.decoder(y)

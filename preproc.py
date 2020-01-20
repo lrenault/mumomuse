@@ -24,13 +24,13 @@ def main(raw_midi_path='db/nottingham-dataset-master/MIDI',
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Preprocess the given audio and midi dataset.')
+    parser = argparse.ArgumentParser(description='Preprocess the given audio and midi datasets.')
     
     parser.add_argument('-midi', '--rawMIDI',
                         default='db/nottingham-dataset-master/MIDI',
                         type=str, help='Path to the raw midi dataset.',
                         dest='midiPATH')
-    parser.add_argument('-audio', 'rawAUDIO',
+    parser.add_argument('-audio', '--rawAUDIO',
                         default='db/nottingham-dataset-master/AUDIO',
                         type=str, help='Path to the raw audio dataset.',
                         dest='audioPATH')
