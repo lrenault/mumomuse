@@ -1,0 +1,160 @@
+embeddings {
+tensor_name: "Train:00000"
+tensor_path: "00000/Train/tensors.tsv"
+metadata_path: "00000/Train/metadata.tsv"
+sprite {
+image_path: "00000/Train/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Validation:00000"
+tensor_path: "00000/Validation/tensors.tsv"
+metadata_path: "00000/Validation/metadata.tsv"
+sprite {
+image_path: "00000/Validation/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Train:00001"
+tensor_path: "00001/Train/tensors.tsv"
+metadata_path: "00001/Train/metadata.tsv"
+sprite {
+image_path: "00001/Train/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Validation:00001"
+tensor_path: "00001/Validation/tensors.tsv"
+metadata_path: "00001/Validation/metadata.tsv"
+sprite {
+image_path: "00001/Validation/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Train:00002"
+tensor_path: "00002/Train/tensors.tsv"
+metadata_path: "00002/Train/metadata.tsv"
+sprite {
+image_path: "00002/Train/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Validation:00002"
+tensor_path: "00002/Validation/tensors.tsv"
+metadata_path: "00002/Validation/metadata.tsv"
+sprite {
+image_path: "00002/Validation/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Train:00003"
+tensor_path: "00003/Train/tensors.tsv"
+metadata_path: "00003/Train/metadata.tsv"
+sprite {
+image_path: "00003/Train/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Validation:00003"
+tensor_path: "00003/Validation/tensors.tsv"
+metadata_path: "00003/Validation/metadata.tsv"
+sprite {
+image_path: "00003/Validation/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Train:00004"
+tensor_path: "00004/Train/tensors.tsv"
+metadata_path: "00004/Train/metadata.tsv"
+sprite {
+image_path: "00004/Train/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Validation:00004"
+tensor_path: "00004/Validation/tensors.tsv"
+metadata_path: "00004/Validation/metadata.tsv"
+sprite {
+image_path: "00004/Validation/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Train:00005"
+tensor_path: "00005/Train/tensors.tsv"
+metadata_path: "00005/Train/metadata.tsv"
+sprite {
+image_path: "00005/Train/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Validation:00005"
+tensor_path: "00005/Validation/tensors.tsv"
+metadata_path: "00005/Validation/metadata.tsv"
+sprite {
+image_path: "00005/Validation/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Train:00006"
+tensor_path: "00006/Train/tensors.tsv"
+metadata_path: "00006/Train/metadata.tsv"
+sprite {
+image_path: "00006/Train/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Validation:00006"
+tensor_path: "00006/Validation/tensors.tsv"
+metadata_path: "00006/Validation/metadata.tsv"
+sprite {
+image_path: "00006/Validation/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Train:00007"
+tensor_path: "00007/Train/tensors.tsv"
+metadata_path: "00007/Train/metadata.tsv"
+sprite {
+image_path: "00007/Train/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
+embeddings {
+tensor_name: "Validation:00007"
+tensor_path: "00007/Validation/tensors.tsv"
+metadata_path: "00007/Validation/metadata.tsv"
+sprite {
+image_path: "00007/Validation/sprite.png"
+single_image_dim: 128
+single_image_dim: 128
+}
+}
