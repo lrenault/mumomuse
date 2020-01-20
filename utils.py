@@ -80,6 +80,9 @@ class pairwise_ranking_objective(nn.Module):
         """
         loss = torch.zeros(1).to(self.device)
         for audio in torch.split(contrastive_audios, 1):
+            print(midi_match.is_cuda())
+            print(audio_match.is_cuda())
+            print(audio.is_cuda())
             loss += torch.max(torch.zeros(1).to(self.device),
                               self.margin \
                               - torch.sum(s(midi_match, audio_match)) \
