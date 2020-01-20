@@ -119,7 +119,7 @@ TBA
 
 ## Contributing
 List of contributors who participated in this project:
-* [L. Renault](https://github.com/lrenault) (dataset preprocessing, models definition and training)
+* [L. Renault](https://github.com/lrenault) (dataset preprocessing, models definition and training, tensorboard viz)
 * [H. Fafin](https://github.com/hfafin) (midi conversion, audio splitting and retrieval)
 * [B. Souchu](https://github.com/BrunoSouchu) (report)
 * [A. Terrasse](https://github.com/aterrasse) (report)
