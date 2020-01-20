@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import normalize
 from numpy import log
+from random import choice
 
 def sampling_period_from_length(end_time):
     """Empirical affine function for giving an adapted sampling period given the music length.
@@ -27,56 +28,71 @@ def previous_label(label):
     previous = root + '_' + prev_snip_idxs
     return previous
 
-def random_except(set_size, excepts, idxs_set_size=99, method=1):
-    """Draw a set of random exclusive natural integers that aren't in the given exception set.
+def batch_except(dataset, excepts, batch_size=99):
+    """Draw a random list of audio snippets in the given dataset, excepts the excepts.
     Args :
-        - set_size (int) : range upper limit.
-        - excepts (list) : list of integers not to draw.
-        - idxs_set_size (int) : number of integers to draw.
+        - dataset (PairSnippets) : dataset to draw audio snippets from.
+        - excepts (list) : list of labels not to draw.
+        - batch_size (int) : length of the output batch.
     Outs :
-        - idxs_set (list) : list of random indexes.
+        - batch (batch_size, audio_snippet.size()) : random batch without excepts.
     """ 
-    if method==1:
-        idxs_set = torch.LongTensor(idxs_set_size).random_(set_size - 1)
-        for i in range(idxs_set_size):
-            if idxs_set[i] >= excepts[0]:
-                idxs_set[i] += 1
-                
-    elif method==2:
-        set_to_draw_from = list(range(set_size))
-        for i in range(set_size - 1, 0, -1):
-            if set_to_draw_from[i] in excepts:
-                del set_to_draw_from[i]
-        elements = torch.LongTensor(idxs_set_size).random_(len(set_to_draw_from))
-        idxs_set = [set_to_draw_from[i] for i in elements]
-        
-    return idxs_set
+    batch = []
+    if batch_size < (len(dataset) - len(excepts)) // 3 : # avoid too many draws
+        for i in range (batch_size):
+            candidate = choice(dataset)
+            while candidate[2] in excepts:
+                candidate = choice(dataset)
+            batch.append(candidate[1])
+    else:
+        for midi, audio, label in dataset:
+            if label not in excepts:
+                batch.append(audio)
+                if len(batch) > batch_size:
+                    break
+    return torch.stack(batch)
     
-
 def s(x, y):
+    """ Cosine similarity between two tensors.
+    Args:
+        - x, y (N, D): embedded vectors.
+    """
     return nn.CosineSimilarity()(normalize(x), normalize(y))
 
 class pairwise_ranking_objective(nn.Module):
     """Hinge loss"""
-    def __init__(self, margin=0.7):
+    def __init__(self, device, margin=0.7):
         """
         Args :
-            - margin : margin of the loss function.
+            - device (torch.device): device variables have to pass to.
+            - margin (float): margin of the loss function.
         """
         super(pairwise_ranking_objective, self).__init__()
-        self.margin = margin
+        self.device = device
+        self.margin = torch.tensor(margin).to(self.device)
     
     def forward(self, midi_match, audio_match, contrastive_audios):
         """
         Args:
-            - midi_match (1, 1, 32) : embedding of a midi excerpt.
-            - audio_match (1, 1, 32) : embedding of its matching audio excerpt.
-            - contrastive_audio (99, 1, 32) : embedding of contrastive audio excerpts.
+            - midi_match (1, 32) : embedding of a midi excerpt.
+            - audio_match (1, 32) : embedding of its matching audio excerpt.
+            - contrastive_audio (99, 32) : embedding of contrastive audio excerpts.
         """
-        loss = 0
-        for audio in contrastive_audios:
-            loss += max(0, self.margin \
-                            - s(midi_match, audio_match) \
-                            + s(midi_match, audio))
-        return loss
-    
+        loss = torch.zeros(1).to(self.device)
+        for audio in torch.split(contrastive_audios, 1):
+            loss += torch.max(torch.zeros(1).to(self.device),
+                              self.margin \
+                              - torch.sum(s(midi_match, audio_match)) \
+                              + torch.sum(s(midi_match, audio)))
+        return loss  
+
+def toColor(img):
+    """Colorize a 1-channel image into a 3-channels image.
+    Arg:
+        - img (N, 1, H, W): grey-scale image.
+    Out:
+        - colored (N, 3, H, W): colored image.
+    """
+    colored = torch.cat((0.5 * torch.log(img), 0.3 * torch.log(img)), 1)
+    colored = torch.cat((colored, 0.4 * torch.log(img)), 1)
+    return colored
