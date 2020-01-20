@@ -267,7 +267,7 @@ def main(midi_snippets_path='db/splitMIDI',
     # model definition
     if MODE == 'MUMOMUSE':
         model = autoencod.multimodal()
-        criterion = utils.pairwise_ranking_objective()
+        criterion = utils.pairwise_ranking_objective(device=device)
     else:
         if MODE == 'MIDI_AE':
             model = autoencod.midi_AE()

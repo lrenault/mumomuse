@@ -61,12 +61,14 @@ def s(x, y):
 
 class pairwise_ranking_objective(nn.Module):
     """Hinge loss"""
-    def __init__(self, margin=0.7):
+    def __init__(self, device, margin=0.7):
         """
         Args :
+            - device (torch.device): device variables have to pass to.
             - margin (float): margin of the loss function.
         """
         super(pairwise_ranking_objective, self).__init__()
+        self.device = device
         self.margin = torch.tensor(margin)
     
     def forward(self, midi_match, audio_match, contrastive_audios):
@@ -76,9 +78,9 @@ class pairwise_ranking_objective(nn.Module):
             - audio_match (1, 32) : embedding of its matching audio excerpt.
             - contrastive_audio (99, 32) : embedding of contrastive audio excerpts.
         """
-        loss = torch.zeros(1)
+        loss = torch.zeros(1).to(self.device)
         for audio in torch.split(contrastive_audios, 1):
-            loss += torch.max(torch.zeros(1),
+            loss += torch.max(torch.zeros(1).to(self.device),
                               self.margin \
                               - torch.sum(s(midi_match, audio_match)) \
                               + torch.sum(s(midi_match, audio)))
