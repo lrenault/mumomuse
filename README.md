@@ -57,7 +57,7 @@ optional arguments:
                         Audio snippets export folder.
 ```
 
-## Network training
+## How to train your network
 
 Train a multimodal, audio auto-encoder or midi auto-encoder model using the audio and midi snippets datasets.
 
@@ -92,6 +92,12 @@ The embedded space construction can be viewed via Tensorboard using the command:
 tensorboard --logdir=runs
 ```
 
+Our models' training process can be viewed using the command:
+
+```
+tensorboard --logdir=valid_runs
+```
+
 ### Two-way snippets retrieval
 
 Benchmark the model's retrieval performances using the snippets in `db/splitAUDIO` and `db/splitMIDI`:
@@ -103,12 +109,12 @@ retrevial.py
 
 Giving a complete MIDI file, generate the audio associated using the given audio snippets dataset as base.
 ```
-example
+TBA
 ```
 
 Giving a complete wav file, generate the MIDI associated using the given MIDI snippets dataset as base.
 ```
-example
+TBA
 ```
 
 ## Contributing
