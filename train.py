@@ -111,9 +111,7 @@ def train_multimodal(model, train_loader, optimizer, criterion, epoch, device):
             optimizer.step()
 
             k += 1
-        except FileNotFoundError:
-            print('FileNotFoundError')
-
+            
         except KeyError:
             print('KeyError')
 
@@ -169,10 +167,7 @@ def eval_multimodal(model, loader, criterion, epoch, writer, set_name, device):
                 for label in batch_labels:
                     midi_metadata.append(label + '_midi')
                     audio_metadata.append(label + '_audio')
-
-            except FileNotFoundError:
-                print('FileNotFoundError')
-                pass
+                
             except KeyError:
                 print('KeyError')
                 pass
