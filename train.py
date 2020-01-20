@@ -247,7 +247,7 @@ def main(midi_snippets_path='db/splitMIDI',
 
     # dataset reduction
     if dataset_reduced_to:
-        used_dataset, leftlovers = torch.utils.data.random_split(
+        pairs_dataset, leftlovers = torch.utils.data.random_split(
                 pairs_dataset,
                 [dataset_reduced_to, set_size - dataset_reduced_to])
         set_size = dataset_reduced_to
@@ -256,7 +256,7 @@ def main(midi_snippets_path='db/splitMIDI',
     train_size = int(set_size * 0.8)
 
     train_set, test_set = torch.utils.data.random_split(
-            used_dataset,
+            pairs_dataset,
             [train_size, set_size - train_size])
 
     # train-validation split
