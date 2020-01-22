@@ -2,14 +2,11 @@ import torch
 import torchaudio
 import torchaudio.transforms
 from torch.utils.data import DataLoader
-from torchvision import transforms
-from numpy import pad
-
-import numpy as np # TO BE DELETED
 
 import datasets
-import utils
 import preproc
+import snippets
+import augment
 
 class AudioLoader():
     '''Audio dataset loader class
@@ -92,31 +89,11 @@ class AudioLoader():
             - batch_size (int) : number of snippets that will be loaded
             - root_dir (string) : dataset path
         """
-        dataset = datasets.Snippets(root_dir)
-        loader  = DataLoader(dataset, batch_size=batch_size)
-        #self.addNoise(loader)
+        dataset = snippets.Snippets(root_dir)
+        loader  = DataLoader(dataset, batch_size=batch_size,
+                             transform=augment.addNoise)
         return loader
-        
-    
-    def addNoise(self, loader, augmented_proportion=0.1, noise_level=0.1):
-        """
-        Adds noise to a certain proportion of the dataset.
-        Args :
-            - augmented_proportion (float) = Proportion of snippets to add noise to.
-            - noise_level (float) = Level of noise to be added.
-            - loader (torch.utils.data.DataLoader) = Loader of the dataset to add noise to.
-        """
-        for snip,name in loader:
-            
-            augment = np.random.random() # use torch.random instead
-            
-            if(augment < augmented_proportion):  
-                npSnip = snip.numpy()
-                noise = np.random.random(size = npSnip.shape())
-                noiseSnipNP = npSnip + noise
-                snip = torch.from_numpy(noiseSnipNP)              
-  
-        return None
+
     
     
     
@@ -126,8 +103,8 @@ class MIDILoader():
             - preproc_stack (transforms) : pre-processing transformations to stack instruments into 1 channel.
             - preproc_unstack (transforms) : pre-processing transformations while keeping instruments into different channels.
     '''
-    def __init__(self, stack=True):
-        self.midi_preproc = preproc.midi_preproc(stack=stack)
+    def __init__(self, midi_preproc=preproc.midi_preproc(stack=True)):
+        self.midi_preproc = midi_preproc
     
     def loader(self, root_dir, batch_size=1, stackInstruments=True):
         """
@@ -179,7 +156,7 @@ class MIDILoader():
         
     def midi_snippets_loader(self, batch_size=1, shuffle=False, root_dir='db/splitMIDI'):
         """ MIDI snippets tensors loader """
-        dataset = datasets.Snippets(root_dir)
+        dataset = snippets.Snippets(root_dir)
         loader  = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
         return loader
 

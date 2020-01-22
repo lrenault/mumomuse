@@ -1,5 +1,4 @@
 import torch
-import pretty_midi
 import torchaudio
 from numpy import pad
 from torchvision import transforms

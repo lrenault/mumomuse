@@ -1,14 +1,11 @@
 import numpy as np
 import torch
-import torch.nn as nn
 import torchaudio
 import torchaudio.transforms
-from torchvision import transforms
-import matplotlib.pyplot as plt
 import pretty_midi
+import matplotlib.pyplot as plt
 
 import loader
-import datasets
 import utils
 import snippets
 import preproc
@@ -75,8 +72,8 @@ plt.plot(t_v, y_v)
 plt.show()
 
 #%% tests preprocessings
-midi_file = 'db/nottingham-dataset-master/MIDI/ashover3.mid'
-audio_file= 'db/nottingham-dataset-master/AUDIO/ashover3.wav'
+midi_file = 'db/nottingham-dataset-master/MIDI/reelsd-g42.mid'
+audio_file= 'db/nottingham-dataset-master/AUDIO/reelsd-g42.wav'
 
 midi = pretty_midi.PrettyMIDI(midi_file)
 audio = torchaudio.load(audio_file)
@@ -84,30 +81,63 @@ audio = torchaudio.load(audio_file)
 preprocessed_midi = preproc.midi_preproc(True)(midi)
 preprocessed_audio= preproc.audio_preproc(22050)(audio)
 
-fig, (ax0, ax1) = plt.subplots(nrows=2, constrained_layout=True, figsize=(30,5))
+print(preprocessed_midi.size(), preprocessed_audio.size())
+
+fig, (ax0, ax1) = plt.subplots(nrows=2, constrained_layout=True,
+                               sharex='all', figsize=(25,5))
 ax0.imshow(preprocessed_midi[0].numpy(), origin='lower')
 ax1.imshow(preprocessed_audio[0].detach().numpy(), origin='lower')
 plt.savefig('db/bleh.jpg')
 plt.show()
 
-#%% tests with snippets
+#%% split by hand
+nb_midi_snippets = preprocessed_midi.size()[2]
+nb_audio_snippets= preprocessed_audio.size()[2]
+
+for i in range(min(nb_midi_snippets//42, nb_audio_snippets//42)):
+    midi_cut = preprocessed_midi[:,:, i * 42: (i + 1) * 42]
+    audio_cut= preprocessed_audio[:,:,i * 42: (i + 1) * 42]
+    
+    print(midi_cut.size(), audio_cut.size())
+    
+    fig, (ax0, ax1) = plt.subplots(ncols=2, constrained_layout=True,
+                               sharex='all', figsize=(5,5))
+    ax0.imshow(midi_cut[0].numpy(), origin='lower')
+    ax1.imshow(audio_cut[0].detach().numpy(), origin='lower')
+    plt.show()
+    
+    if i == 3:
+        break
+
+
+#%% tests with Snippets
+midi_snip = torch.load('db/splitMIDI/reelsd-g42_11.pt')
+audio_snip= torch.load('db/splitAUDIO/reelsd-g42_11.pt')
+
+fig, (ax0, ax1) = plt.subplots(ncols=2, constrained_layout=True)
+    
+ax0.imshow(midi_snip[0].numpy(), origin='lower')
+ax1.imshow(audio_snip[0].detach().numpy(), origin='lower')
+plt.show()
+
+#%% tests with PairSnippets
 midi_dataset = snippets.Snippets('db/splitMIDI')
 audio_dataset = snippets.Snippets('db/splitAUDIO')
 
 pairs_dataset = snippets.PairSnippets(midi_dataset, audio_dataset)
 
-pairs_loader = torch.utils.data.DataLoader(pairs_dataset, batch_size=1, shuffle=True)
+pairs_loader = torch.utils.data.DataLoader(pairs_dataset, batch_size=1)
 
 k = 0
 for batch_midi, batch_audio, batch_labels in pairs_loader:
     print(batch_midi.size(), batch_audio.size(), batch_labels)
     
     fig, (ax0, ax1) = plt.subplots(ncols=2, constrained_layout=True)
-    
     ax0.imshow(batch_midi[0,0].numpy(), origin='lower')
     ax1.imshow(batch_audio[0,0].detach().numpy(), origin='lower')
+    plt.title(batch_labels[0])
     plt.show()
 
     k += 1
-    if k==4:
+    if k==1:
         break
