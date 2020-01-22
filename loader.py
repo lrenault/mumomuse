@@ -9,6 +9,7 @@ import numpy as np # TO BE DELETED
 
 import datasets
 import utils
+import preproc
 
 class AudioLoader():
     '''Audio dataset loader class
@@ -20,21 +21,9 @@ class AudioLoader():
             - splitData : Creates a set of tensors extracted from a set of PIL images
             - audio_snippets_loader : Loads a set of spectrogram snippets 
     '''
-    def __init__(self):
+    def __init__(self, audio_preproc=preproc.audio_preproc(target_sr=22050)):
         self.target_sr = 22050
-        self.preproc = transforms.Compose([
-                lambda x: torchaudio.transforms.Resample(x[1],
-                                                         self.target_sr)(x[0]),
-                transforms.Lambda(lambda x: x.mean(0).unsqueeze(0)), # convert to mono
-                torchaudio.transforms.MelSpectrogram(
-                    sample_rate=self.target_sr,
-                    n_fft=2048,
-                    win_length=2048,
-                    f_min=30.0,
-                    f_max=6000.0,
-                    n_mels=92),
-                transforms.Normalize([0], [1]),
-                ])
+        self.preproc = audio_preproc
         
     def loader(self, root_dir, batch_size=1):
         """
@@ -137,59 +126,8 @@ class MIDILoader():
             - preproc_stack (transforms) : pre-processing transformations to stack instruments into 1 channel.
             - preproc_unstack (transforms) : pre-processing transformations while keeping instruments into different channels.
     '''
-    def __init__(self):
-        self.preproc_stack = transforms.Compose([
-                lambda x: self.get_PianoRoll(x),
-                ])
-        self.preproc_unstack = transforms.Compose([
-                lambda x: self.get_PianoRoll(x, stack=False)
-                ])
-    
-    def get_PianoRoll(self, midi, stack=True):
-        """
-        Args:
-            - midi (pretty_midi) : midi data.
-            - stack (bool) : if True, stack all insturment into 1 piano roll.
-        Out:
-            data (C, 128, L_audio) : piano roll of the midi file.
-        """
-        nb_instru = 0
-        length = 0
-        fs = utils.sampling_period_from_length(midi.get_end_time())
-        for instrument in midi.instruments:
-            if not instrument.is_drum:
-                instruRoll = instrument.get_piano_roll(fs=fs)
-                instruLen = instruRoll.shape[1]
-                if nb_instru == 0:              # init
-                    if stack:
-                        data = instruRoll
-                        length = instruLen
-                    else:
-                        data = [instruRoll]
-                else :
-                    if stack:
-                        if instruLen > length:  # instrument score longer than whole track length
-                            data = pad(
-                                    data,
-                                    ((0, 0), (0, instruLen - length))
-                                    )
-                            length = instruLen
-                            
-                        if instruLen < length:  # instrument score shorter than whole track length
-                            instruRoll = pad(
-                                    instruRoll,
-                                    ((0, 0), (0, length - instruLen))
-                                    )
-                        data += instruRoll
-                    else:
-                        data.append(instruRoll)
-                nb_instru += 1
-        # tensor conversion
-        data = torch.Tensor(data)
-        if stack:
-            data = data.unsqueeze(0)            # add channel dimension
-        return data
-                
+    def __init__(self, stack=True):
+        self.midi_preproc = preproc.midi_preproc(stack=stack)
     
     def loader(self, root_dir, batch_size=1, stackInstruments=True):
         """
@@ -198,13 +136,7 @@ class MIDILoader():
             - batch_size (int) : loading batch size.
             - stackInstruments (bool): stack all instruments in 1 pianoroll or not
         """
-        if stackInstruments:
-            dataset = datasets.MIDIDataset(root_dir,
-                                           transform=self.preproc_stack)
-        else:
-            dataset = datasets.MIDIDataset(root_dir,
-                                           transform=self.preproc_unstack)
-            
+        dataset = datasets.MIDIDataset(root_dir, transform=self.midi_preproc)
         loader = DataLoader(dataset, batch_size=batch_size)
         return loader
     
