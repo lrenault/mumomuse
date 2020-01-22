@@ -78,6 +78,10 @@ audio_file= 'db/nottingham-dataset-master/AUDIO/reelsd-g42.wav'
 midi = pretty_midi.PrettyMIDI(midi_file)
 audio = torchaudio.load(audio_file)
 
+end_time = midi.get_end_time()
+print("EndTime:", end_time)
+print("Sampling rate:", utils.sampling_period_from_length(end_time))
+
 preprocessed_midi = preproc.midi_preproc(True)(midi)
 preprocessed_audio= preproc.audio_preproc(22050)(audio)
 
@@ -111,8 +115,8 @@ for i in range(min(nb_midi_snippets//42, nb_audio_snippets//42)):
 
 
 #%% tests with Snippets
-midi_snip = torch.load('db/splitMIDI/reelsd-g42_11.pt')
-audio_snip= torch.load('db/splitAUDIO/reelsd-g42_11.pt')
+midi_snip = torch.load('db/splitMIDI/reelsd-g42_25.pt')
+audio_snip= torch.load('db/splitAUDIO/reelsd-g42_25.pt')
 
 fig, (ax0, ax1) = plt.subplots(ncols=2, constrained_layout=True)
     

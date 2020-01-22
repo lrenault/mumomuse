@@ -83,7 +83,7 @@ class pairwise_ranking_objective(nn.Module):
             loss += torch.max(torch.zeros(1).to(self.device),
                               self.margin \
                               - torch.sum(s(midi_match, audio_match)) \
-                              + torch.sum(s(midi_match, audio)))
+                              + 0.01 * torch.sum(s(midi_match, audio)))
         return loss  
 
 def toColor(img):
